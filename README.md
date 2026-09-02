@@ -1,5 +1,7 @@
 # UX Laws
 
+[![skills.sh](https://skills.sh/b/uwussimo/ux-laws)](https://skills.sh/uwussimo/ux-laws)
+
 Most AI-built interfaces suck.
 
 Not because the models can't write React. They can. Not because they can't make something that looks polished. They can do that too.
@@ -24,6 +26,29 @@ These are not aesthetic questions. They're interaction rules.
 This skill is a collection of those rules.
 
 The goal isn't to make AI-generated interfaces prettier. The goal is to make them feel like someone actually thought about the person using them.
+
+---
+
+## Installation
+
+```bash
+npx skills add uwussimo/ux-laws
+```
+
+That installs the skill into the current project. Other options:
+
+```bash
+npx skills add uwussimo/ux-laws -g                    # install globally, for every project
+npx skills add uwussimo/ux-laws --agent claude-code   # install for one agent only
+npx skills use uwussimo/ux-laws | claude              # try it without installing
+```
+
+The skill works with Claude Code, Cursor, Copilot, Windsurf, Gemini, Cline, and the other agents the
+[`skills`](https://github.com/vercel-labs/skills) CLI supports. To install by hand instead, copy the
+`ux-laws/` directory into your agent's skills directory (`~/.claude/skills/` for Claude Code).
+
+Once installed, the skill activates on its own whenever you ask an agent to design, build, review, or
+improve an interface — you don't need to mention it by name.
 
 ---
 
