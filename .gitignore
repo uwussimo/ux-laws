@@ -1,0 +1,5 @@
+# Local skills.sh install artifacts — this repo *is* the skill source,
+# so an installed copy of it here would just be a duplicate.
+.claude/
+.agents/
+skills-lock.json

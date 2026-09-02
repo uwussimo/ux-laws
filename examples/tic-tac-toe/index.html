@@ -1,0 +1,508 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tic-tac-toe — built with the UX Laws skill</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --line: #e3e6ea;
+    --text: #14171a;
+    --muted: #666e78;
+    --accent: #2f6df6;
+    --accent-soft: #e7efff;
+    --x: #2f6df6;
+    --o: #d1495b;
+    --win: #16a34a;
+    --win-soft: #dcfce7;
+    --radius: 14px;
+    --shadow: 0 1px 2px rgba(16,20,26,.06), 0 8px 24px rgba(16,20,26,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115;
+      --surface: #171a20;
+      --line: #272b33;
+      --text: #eef1f5;
+      --muted: #98a1ad;
+      --accent: #5b8cff;
+      --accent-soft: #1b2740;
+      --x: #6f9bff;
+      --o: #ff7d8f;
+      --win: #4ade80;
+      --win-soft: #14331f;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    display: flex;
+    justify-content: center;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.5 ui-sans-serif, -apple-system, "Segoe UI", Roboto, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Fitts's + target distance: on a phone the whole game sits in the lower
+     two-thirds, so the board and its controls are inside thumb reach. */
+  main {
+    width: 100%;
+    max-width: 420px;
+    padding: 16px 16px 32px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 20px;
+  }
+
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  h1 { font-size: 15px; font-weight: 600; letter-spacing: -.01em; margin: 0; color: var(--muted); }
+
+  /* Law of Proximity: the mode control is its own group, spaced away from
+     the board so it never reads as part of the game surface. */
+  .segmented {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+  }
+  .segmented button {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 14px;           /* Fitts's: comfortable hit area, not a 20px chip */
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .segmented button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+  .segmented button:hover:not([aria-pressed="true"]) { color: var(--text); }
+
+  /* Uniform connectedness: status, board and controls share one surface,
+     so they read as a single object rather than three loose widgets. */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: calc(var(--radius) + 6px);
+    box-shadow: var(--shadow);
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* Serial position: the single most important fact — whose move it is —
+     sits first, at the top of the card, in the largest type on screen. */
+  .status { min-height: 52px; display: flex; flex-direction: column; gap: 2px; justify-content: center; }
+  .status-line { font-size: 20px; font-weight: 650; letter-spacing: -.02em; }
+  .status-sub { font-size: 13px; color: var(--muted); }
+  .turn-dot {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    margin-right: 8px;
+    vertical-align: 1px;
+  }
+  .turn-x { background: var(--x); }
+  .turn-o { background: var(--o); }
+
+  .board {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  /* Fitts's: cells are the primary target, so they get the most area on
+     screen — square, full-width, never smaller than a comfortable tap. */
+  .cell {
+    aspect-ratio: 1;
+    min-height: 88px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(38px, 13vw, 52px);
+    font-weight: 600;
+    line-height: 1;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background .12s ease, transform .12s ease, border-color .12s ease;
+  }
+  .cell:hover:not(:disabled) { background: var(--accent-soft); border-color: var(--accent); }
+  .cell:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .cell[data-mark="X"] { color: var(--x); }
+  .cell[data-mark="O"] { color: var(--o); }
+  .cell:disabled { cursor: default; }
+  .cell.placed { animation: pop .18s ease-out; }
+  /* Peak-end: the win isn't announced in text alone — the three cells that
+     made it are shown, so the player sees exactly how the game was won. */
+  .cell.win { background: var(--win-soft); border-color: var(--win); }
+  /* Postel's: tapping a taken cell is a misunderstanding, not an error.
+     It shrugs. No dialog, no red text, nothing to dismiss. */
+  .cell.nudge { animation: nudge .3s ease; }
+
+  @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  @keyframes nudge {
+    0%,100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .cell.placed, .cell.nudge { animation: none; }
+    * { transition: none !important; }
+  }
+
+  .controls { display: flex; gap: 8px; }
+  button.action {
+    flex: 1;
+    appearance: none;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 550;
+    padding: 13px 16px;          /* Fitts's: ~46px tall, thumb-sized */
+    border-radius: var(--radius);
+    cursor: pointer;
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--line);
+    transition: background .12s ease, border-color .12s ease;
+  }
+  button.action:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  button.action:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  button.action:disabled { opacity: .45; cursor: default; }
+  /* Von Restorff: exactly one filled button can exist at a time, and it only
+     appears once the round is over. During play the board is the loud thing. */
+  button.action.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  button.action.primary:hover { filter: brightness(1.06); color: #fff; }
+
+  /* Miller's: three numbers, labelled, chunked — not a sentence to parse. */
+  .score { display: flex; gap: 8px; }
+  .score div {
+    flex: 1;
+    text-align: center;
+    padding: 10px 6px;
+    border-radius: var(--radius);
+    background: var(--surface);
+    border: 1px solid var(--line);
+  }
+  .score .value { font-size: 19px; font-weight: 650; letter-spacing: -.02em; }
+  .score .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+
+  .hint { font-size: 12px; color: var(--muted); text-align: center; }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px;
+    padding: 0; margin: -1px; overflow: hidden;
+    clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Tic-tac-toe</h1>
+    <!-- Hick's: two modes, both visible, no dropdown. Occam's: difficulty is
+         only revealed when it can matter (see #difficulty below). -->
+    <div class="segmented" role="group" aria-label="Opponent">
+      <button id="mode-cpu" aria-pressed="true">Computer</button>
+      <button id="mode-two" aria-pressed="false">2 players</button>
+    </div>
+  </header>
+
+  <div class="card">
+    <div class="status">
+      <div class="status-line" id="status">Your turn</div>
+      <div class="status-sub" id="status-sub">You're X. Tap any square to start.</div>
+    </div>
+
+    <div class="board" id="board" role="grid" aria-label="Tic-tac-toe board"></div>
+
+    <div class="controls">
+      <button class="action" id="undo" disabled>Undo</button>
+      <button class="action" id="restart">New game</button>
+    </div>
+
+    <!-- Occam's razor: hidden until "Computer" is the opponent, because in
+         2-player mode a difficulty setting is meaningless. -->
+    <div class="segmented" id="difficulty" role="group" aria-label="Difficulty" style="align-self:center">
+      <button id="diff-casual" aria-pressed="true">Casual</button>
+      <button id="diff-perfect" aria-pressed="false">Unbeatable</button>
+    </div>
+  </div>
+
+  <div class="score">
+    <div><div class="value" id="score-x">0</div><div class="label" id="label-x">You</div></div>
+    <div><div class="value" id="score-d">0</div><div class="label">Draws</div></div>
+    <div><div class="value" id="score-o">0</div><div class="label" id="label-o">Computer</div></div>
+  </div>
+
+  <p class="hint">Arrow keys to move · Enter to place</p>
+  <div class="sr-only" role="status" aria-live="polite" id="live"></div>
+</main>
+
+<script>
+(() => {
+  const LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  const NAMES = {
+    "0,1,2": "the top row", "3,4,5": "the middle row", "6,7,8": "the bottom row",
+    "0,3,6": "the left column", "1,4,7": "the middle column", "2,5,8": "the right column",
+    "0,4,8": "a diagonal", "2,4,6": "a diagonal"
+  };
+
+  const el = id => document.getElementById(id);
+  const boardEl = el("board"), statusEl = el("status"), subEl = el("status-sub");
+  const undoBtn = el("undo"), restartBtn = el("restart"), liveEl = el("live");
+  const diffEl = el("difficulty");
+
+  // Tesler's: the app carries this state so the player never has to.
+  const state = {
+    board: Array(9).fill(null),
+    turn: "X",
+    over: false,
+    winLine: null,
+    vsCpu: true,
+    perfect: false,
+    history: [],
+    starter: "X",
+    score: { X: 0, O: 0, D: 0 },
+    busy: false
+  };
+
+  const cells = Array.from({ length: 9 }, (_, i) => {
+    const b = document.createElement("button");
+    b.className = "cell";
+    b.dataset.index = i;
+    b.setAttribute("role", "gridcell");
+    b.addEventListener("click", () => play(i));
+    boardEl.appendChild(b);
+    return b;
+  });
+
+  const winnerOf = bd => {
+    for (const line of LINES) {
+      const [a, b, c] = line;
+      if (bd[a] && bd[a] === bd[b] && bd[a] === bd[c]) return { mark: bd[a], line };
+    }
+    return bd.every(Boolean) ? { mark: null, line: null } : null;
+  };
+
+  function play(i) {
+    // Postel's: an occupied square isn't an error state. It nudges and moves on.
+    if (state.board[i] || state.over || state.busy) {
+      if (state.board[i] && !state.over) {
+        cells[i].classList.remove("nudge");
+        void cells[i].offsetWidth;
+        cells[i].classList.add("nudge");
+      }
+      return;
+    }
+    state.history.push(state.board.slice());
+    state.board[i] = state.turn;
+    state.turn = state.turn === "X" ? "O" : "X";
+    render(i);
+    maybeCpu();
+  }
+
+  function maybeCpu() {
+    if (state.over || !state.vsCpu || state.turn !== "O") return;
+    state.busy = true;
+    render();
+    // Doherty threshold: instant would feel like a glitch, slow would feel
+    // broken. ~280ms reads as "it moved" without ever making you wait.
+    setTimeout(() => {
+      const move = state.perfect ? bestMove(state.board) : casualMove(state.board);
+      state.board[move] = "O";
+      state.turn = "X";
+      state.busy = false;
+      render(move);
+    }, 280);
+  }
+
+  const empties = bd => bd.reduce((a, v, i) => (v ? a : (a.push(i), a)), []);
+
+  function casualMove(bd) {
+    // Beatable on purpose: takes an obvious win, blocks an obvious loss,
+    // otherwise plays loose. A perfect opponent every time isn't fun.
+    for (const mark of ["O", "X"]) {
+      for (const i of empties(bd)) {
+        const test = bd.slice();
+        test[i] = mark;
+        const w = winnerOf(test);
+        if (w && w.mark === mark) return i;
+      }
+    }
+    const open = empties(bd);
+    return open[Math.floor(Math.random() * open.length)];
+  }
+
+  function bestMove(bd) {
+    let best = -Infinity, move = empties(bd)[0];
+    for (const i of empties(bd)) {
+      const test = bd.slice();
+      test[i] = "O";
+      const s = minimax(test, false);
+      if (s > best) { best = s; move = i; }
+    }
+    return move;
+  }
+
+  function minimax(bd, maximizing, depth = 0) {
+    const w = winnerOf(bd);
+    if (w) {
+      if (w.mark === "O") return 10 - depth;
+      if (w.mark === "X") return depth - 10;
+      return 0;
+    }
+    const scores = empties(bd).map(i => {
+      const test = bd.slice();
+      test[i] = maximizing ? "O" : "X";
+      return minimax(test, !maximizing, depth + 1);
+    });
+    return maximizing ? Math.max(...scores) : Math.min(...scores);
+  }
+
+  function render(placedIndex) {
+    const result = winnerOf(state.board);
+    if (result && !state.over) {
+      state.over = true;
+      state.winLine = result.line;
+      if (result.mark === "X") state.score.X++;
+      else if (result.mark === "O") state.score.O++;
+      else state.score.D++;
+    }
+
+    cells.forEach((c, i) => {
+      const mark = state.board[i];
+      c.textContent = mark || "";
+      if (mark) c.dataset.mark = mark; else delete c.dataset.mark;
+      c.disabled = state.over || (state.vsCpu && state.turn === "O");
+      c.classList.toggle("win", !!state.winLine && state.winLine.includes(i));
+      c.setAttribute("aria-label", `Square ${i + 1}${mark ? `, ${mark}` : ", empty"}`);
+      if (i === placedIndex) {
+        c.classList.remove("placed");
+        void c.offsetWidth;
+        c.classList.add("placed");
+      }
+    });
+
+    const dot = m => `<span class="turn-dot turn-${m.toLowerCase()}"></span>`;
+
+    if (state.over) {
+      // Peak-end: the ending says what happened and how, then offers the one
+      // obvious next action. Never a bare "Game over".
+      const r = winnerOf(state.board);
+      if (r.mark === null) {
+        statusEl.textContent = "Draw";
+        subEl.textContent = "Nobody got three in a row.";
+      } else {
+        const who = state.vsCpu ? (r.mark === "X" ? "You win" : "Computer wins") : `${r.mark} wins`;
+        statusEl.innerHTML = `${dot(r.mark)}${who}`;
+        subEl.textContent = `Three in a row across ${NAMES[r.line.join(",")]}.`;
+      }
+      liveEl.textContent = statusEl.textContent + ". " + subEl.textContent;
+    } else if (state.busy) {
+      statusEl.innerHTML = `${dot("O")}Computer’s turn`;
+      subEl.textContent = "Thinking…";
+    } else if (state.vsCpu) {
+      statusEl.innerHTML = `${dot("X")}Your turn`;
+      subEl.textContent = state.history.length ? "You’re X." : "You’re X. Tap any square to start.";
+    } else {
+      statusEl.innerHTML = `${dot(state.turn)}${state.turn}’s turn`;
+      subEl.textContent = state.history.length ? "" : "X goes first.";
+    }
+
+    el("score-x").textContent = state.score.X;
+    el("score-o").textContent = state.score.O;
+    el("score-d").textContent = state.score.D;
+    el("label-x").textContent = state.vsCpu ? "You" : "X";
+    el("label-o").textContent = state.vsCpu ? "Computer" : "O";
+
+    undoBtn.disabled = state.over || !state.history.length || state.busy;
+    // Von Restorff: the filled button exists only at the end of a round, so
+    // there is never more than one loud thing on screen.
+    restartBtn.textContent = state.over ? "Play again" : "New game";
+    restartBtn.classList.toggle("primary", state.over);
+    diffEl.style.display = state.vsCpu ? "flex" : "none";
+  }
+
+  // Postel's: undo instead of "are you sure?". A misclick costs one tap.
+  undoBtn.addEventListener("click", () => {
+    if (!state.history.length || state.busy) return;
+    state.board = state.history.pop();
+    // Against the computer one undo rewinds the pair, which is what the
+    // player means by "undo" — not "give the computer a free move".
+    if (state.vsCpu && state.history.length) state.board = state.history.pop();
+    state.turn = state.vsCpu ? "X" : (state.board.filter(Boolean).length % 2 === 0 ? "X" : "O");
+    state.over = false;
+    state.winLine = null;
+    render();
+  });
+
+  function newGame(keepScore = true) {
+    if (!keepScore) state.score = { X: 0, O: 0, D: 0 };
+    // Fairness the system handles by itself: the starter alternates.
+    state.starter = state.starter === "X" ? "O" : "X";
+    state.board = Array(9).fill(null);
+    state.history = [];
+    state.over = false;
+    state.winLine = null;
+    state.busy = false;
+    state.turn = state.vsCpu ? "X" : state.starter;
+    render();
+    if (state.vsCpu && state.starter === "O") { state.turn = "O"; maybeCpu(); }
+  }
+
+  restartBtn.addEventListener("click", () => newGame(true));
+
+  const setMode = cpu => {
+    if (state.vsCpu === cpu) return;
+    state.vsCpu = cpu;
+    el("mode-cpu").setAttribute("aria-pressed", String(cpu));
+    el("mode-two").setAttribute("aria-pressed", String(!cpu));
+    newGame(false);   // switching opponent means the old score is meaningless
+  };
+  el("mode-cpu").addEventListener("click", () => setMode(true));
+  el("mode-two").addEventListener("click", () => setMode(false));
+
+  const setDiff = perfect => {
+    state.perfect = perfect;
+    el("diff-casual").setAttribute("aria-pressed", String(!perfect));
+    el("diff-perfect").setAttribute("aria-pressed", String(perfect));
+    newGame(true);
+  };
+  el("diff-casual").addEventListener("click", () => setDiff(false));
+  el("diff-perfect").addEventListener("click", () => setDiff(true));
+
+  // Jakob's: arrow keys do what arrow keys do in every grid.
+  boardEl.addEventListener("keydown", e => {
+    const i = Number(document.activeElement?.dataset.index);
+    if (Number.isNaN(i)) return;
+    const delta = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: 3, ArrowUp: -3 }[e.key];
+    if (!delta) return;
+    e.preventDefault();
+    const next = i + delta;
+    if (next < 0 || next > 8) return;
+    if (Math.abs(delta) === 1 && Math.floor(next / 3) !== Math.floor(i / 3)) return;
+    cells[next].focus();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
