@@ -2,7 +2,7 @@
 
 [![skills.sh](https://skills.sh/b/uwussimo/ux-laws)](https://skills.sh/uwussimo/ux-laws)
 
-**[Play the demo →](https://uwussimo.github.io/ux-laws/examples/tic-tac-toe/)** — tic-tac-toe, built with this skill loaded. [Source](./examples/tic-tac-toe/index.html) · [what changed, law by law](./examples/README.md)
+**[Play the demo →](https://uwussimo.github.io/ux-laws/)** — tic-tac-toe, built with three words and this skill loaded. [Source](./index.html) · [what changed, law by law](./examples/README.md)
 
 Most AI-built interfaces suck.
 

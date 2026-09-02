@@ -5,13 +5,18 @@ output instead of in the abstract.
 
 Each example is a single self-contained HTML file — open it directly in a browser, no build step.
 
-## [tic-tac-toe](./tic-tac-toe/index.html)
+The tic-tac-toe demo is the site's landing page, so it lives at [`/index.html`](../index.html) rather
+than under this directory; further examples go in `examples/<name>/`.
 
-**[Play it live →](https://uwussimo.github.io/ux-laws/examples/tic-tac-toe/)**
+## [tic-tac-toe](../index.html)
+
+**[Play it live →](https://uwussimo.github.io/ux-laws/)**
 
 Tic-tac-toe is a useful test precisely because it is trivial. There is no feature work to hide
 behind, so every difference between a careless version and a considered one is an interaction
 decision. The default AI-built version is nine divs, an `alert("X wins!")`, and a reset button.
+
+The prompt was three words. Everything below came from the skill, not the prompt.
 
 What the skill changed:
 
