@@ -7,6 +7,8 @@ Each example is a single self-contained HTML file — open it directly in a brow
 
 ## [tic-tac-toe](./tic-tac-toe/index.html)
 
+**[Play it live →](https://uwussimo.github.io/ux-laws/examples/tic-tac-toe/)**
+
 Tic-tac-toe is a useful test precisely because it is trivial. There is no feature work to hide
 behind, so every difference between a careless version and a considered one is an interaction
 decision. The default AI-built version is nine divs, an `alert("X wins!")`, and a reset button.

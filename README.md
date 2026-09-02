@@ -2,6 +2,8 @@
 
 [![skills.sh](https://skills.sh/b/uwussimo/ux-laws)](https://skills.sh/uwussimo/ux-laws)
 
+**[Play the demo →](https://uwussimo.github.io/ux-laws/examples/tic-tac-toe/)** — tic-tac-toe, built with this skill loaded. [Source](./examples/tic-tac-toe/index.html) · [what changed, law by law](./examples/README.md)
+
 Most AI-built interfaces suck.
 
 Not because the models can't write React. They can. Not because they can't make something that looks polished. They can do that too.
