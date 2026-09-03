@@ -6,153 +6,401 @@
 <title>Chess — built with the UX Laws skill</title>
 <meta name="description" content="Playable chess built by an agent with the ux-laws skill loaded.">
 <style>
+  /* ═══════════════════════════════════════════════════════════════════
+     Tabular Stone — the type carries the hierarchy, the colour stays
+     quiet. Opaque grouped cards on a grouped ground, hairlines instead
+     of borders, one accent split by role, and semantic colour reserved
+     for move grades. Translucency appears exactly twice: the sticky
+     header and the promotion sheet.
+     ═══════════════════════════════════════════════════════════════════ */
   :root {
-    color-scheme: light;              /* one theme, deliberately — see README */
-    --bg: #ffffff;
-    --surface: #ffffff;
-    --snow: #f7f7f7;
-    --line: #e5e5e5;
-    --line-strong: #d8d8d8;
-    --text: #4b4b4b;                  /* 8.7:1 on white */
-    --text-strong: #3c3c3c;           /* 11.0:1 */
-    --muted: #767676;                 /* Duolingo's own #afafaf is 2.19:1 — unusable for text */
-    --muted-soft: #cfcfcf;            /* decorative only: dividers, empty dots */
+    color-scheme: light dark;
 
-    --green: #58cc02;                 /* fills and bars only — never behind text */
-    --green-edge: #58a700;
-    --green-btn: #358000;             /* 4.95:1 with a white label */
-    --green-text: #3d7a00;
-    --green-soft: #d7ffb8;
-    --blue: #1cb0f6;                  /* fills, borders, icons */
-    --blue-edge: #1899d6;
-    --blue-text: #12719e;             /* 5.4:1 — the blue that is allowed to be type */
-    --blue-soft: #ddf4ff;
-    --red: #ff4b4b;
-    --red-edge: #ea2b2b;
-    --red-soft: #ffdfe0;
-    --amber: #ffc800;
-    --amber-soft: #fff4d6;
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+            "Segoe UI Variable Text", "Segoe UI", Roboto, system-ui, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
 
-    --accent: var(--blue);
-    --accent-soft: var(--blue-soft);
-    --danger: var(--red);
-    --win: var(--green-edge);
+    --bg:        #f2f2f7;
+    --surface:   #ffffff;
+    --surface-2: #f2f2f7;
+    --material:      rgba(242, 242, 247, .78);
+    --material-blur: saturate(180%) blur(20px);
+    --material-edge: rgba(255, 255, 255, .6);
+    --scrim:         rgba(0, 0, 0, .22);
 
-    /* Green board to sit with the green UI — still a classic chess pair. */
-    --sq-light: #eeeed2;
-    --sq-dark: #769656;
-    --sq-edge: #d8d8d8;
-    --piece-w: #ffffff;
-    --piece-b: #2a2724;
-    --mark: rgba(255, 200, 0, .55);
-    --mark-strong: rgba(255, 184, 0, .78);
-    --hint: rgba(13, 26, 6, .72);     /* .6 measured 2.82:1 on the dark squares */
+    --label:   #1c1c1e;                  /* 17.0:1 on a card */
+    --label-2: rgba(60, 60, 67, .76);    /* 5.30:1 — the smallest text still passes */
+    --label-3: rgba(60, 60, 67, .55);    /* non-text only: chevrons, rules */
+    --label-4: rgba(60, 60, 67, .26);
 
-    --radius: 16px;
-    --radius-lg: 20px;
-    --shadow: none;
+    --sep:        rgba(60, 60, 67, .22);
+    --sep-opaque: #d8d8dc;
+    --fill-1: rgba(120, 120, 128, .2);
+    --fill-2: rgba(120, 120, 128, .14);
+    --fill-3: rgba(120, 120, 128, .08);
+
+    /* One accent, split by role: a blue that is legible as a fill is not
+       the same blue that is legible as type. */
+    --accent:        #007aff;
+    --accent-fill:   #0a6ce0;            /* white label on it: 4.96:1 */
+    --accent-press:  #0a62cc;
+    --accent-text:   #0064d2;            /* 5.59:1 — the blue allowed to be words */
+    --accent-tint:   rgba(0, 122, 255, .12);
+    --accent-tint-2: rgba(0, 122, 255, .22);
+    --focus:         rgba(0, 122, 255, .6);
+
+    /* Semantic colour exists for move grades and check. Nowhere else. */
+    --red-text:    #d70015;  --red-tint:    rgba(255, 59, 48, .12);
+    --orange-text: #c93400;  --orange-tint: rgba(255, 149, 0, .16);
+    --yellow-text: #946200;  --yellow-tint: rgba(255, 204, 0, .22);
+    --green-text:  #1e7b34;  --green-tint:  rgba(52, 199, 89, .16);
+    --badge-bad:   #d70015;  --badge-bad-ink:  #ffffff;
+    --badge-good:  #1e7b34;  --badge-good-ink: #ffffff;
+
+    /* Warm stone, not green. The floor is set by the black pieces: the
+       Cburnett black pawn is a solid #000 fill with a #000 stroke and has
+       no white channel at all, so the dark square cannot go dark. At
+       these values black reads 4.80:1 on the dark square and white reads
+       4.38:1, with the sprites' own outlines carrying the rest. */
+    --sq-light: #ecdac0;
+    --sq-dark:  #837767;
+    --board-edge:   rgba(0, 0, 0, .16);
+    --board-shadow: 0 1px 2px rgba(60, 45, 25, .1), 0 10px 26px -12px rgba(60, 45, 25, .26);
+    --piece-shadow: 0 1px 1.5px rgba(0, 0, 0, .3);
+    --hint-on-light: rgba(0, 0, 0, .6);
+    --hint-on-dark:  rgba(255, 255, 255, .85);
+    --wash-last:    rgba(0, 122, 255, .22);
+    --wash-sel:     rgba(0, 122, 255, .32);
+    --ring-sel:     #007aff;
+    --wash-check:   rgba(255, 59, 48, .46);
+    --wash-check-2: rgba(255, 59, 48, .31);
+    --wash-bad:     rgba(255, 59, 48, .36);
+    --wash-good:    rgba(52, 199, 89, .36);
+
+    /* A radius belongs to the object, not to the stylesheet. */
+    --r-card: 18px; --r-sheet: 22px; --r-board: 14px;
+    --r-control: 12px; --r-inner: 10px; --r-tag: 6px; --r-pill: 980px;
+
+    --shadow-thumb: 0 3px 8px rgba(0, 0, 0, .1), 0 1px 1px rgba(0, 0, 0, .05);
+    --shadow-sheet: 0 18px 48px rgba(0, 0, 0, .18), 0 2px 8px rgba(0, 0, 0, .06);
+
+    /* Spacing in rem so a larger text setting reflows the layout with it. */
+    --sp-1: .25rem; --sp-2: .5rem; --sp-3: .75rem; --sp-4: 1rem;
+    --sp-5: 1.25rem; --sp-6: 1.5rem; --sp-8: 2rem;
+    --gutter: 1rem;
+    --hit: 44px;
+
+    /* Cubic-béziers fitted to Apple's damping/response pairs. Nothing here
+       is gesture-driven — a move is a tap — so a real spring would only
+       buy interruptibility nothing needs. */
+    --ease-standard: cubic-bezier(.32, .72, 0, 1);      /* damping 1.0, response .40 */
+    --ease-snap:     cubic-bezier(.33, 1, .68, 1);      /* damping 1.0, response .25 */
+    --ease-bounce:   cubic-bezier(.22, 1.28, .36, 1);   /* damping ~0.8, response .35 */
+    --dur-press: 110ms; --dur-release: 380ms; --dur-tint: 180ms;
+    --dur-move: 300ms;      /* hard ceiling: animateMove removes the flyer at 340ms */
+    --dur-panel: 420ms; --dur-sheet: 360ms;
+  }
+
+  /* Dark by system preference, guarded so an explicit light choice wins.
+     The ground is #0a0a0c rather than pure black: the board is a mid-tone
+     object, and on true black it reads as a lightbox in a hole. */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0a0a0c; --surface: #1c1c1e; --surface-2: #2c2c2e;
+      --material: rgba(20, 20, 23, .74); --material-edge: rgba(255, 255, 255, .1);
+      --scrim: rgba(0, 0, 0, .5);
+      --label: #ffffff;
+      --label-2: rgba(235, 235, 245, .72);
+      --label-3: rgba(235, 235, 245, .55);
+      --label-4: rgba(235, 235, 245, .28);
+      --sep: rgba(84, 84, 88, .72); --sep-opaque: #38383a;
+      --fill-1: rgba(120, 120, 128, .36);
+      --fill-2: rgba(120, 120, 128, .24);
+      --fill-3: rgba(120, 120, 128, .16);
+      --accent: #0a84ff; --accent-fill: #0a6ce0; --accent-press: #0a5ed8;
+      --accent-text: #5aacff;
+      --accent-tint: rgba(10, 132, 255, .22); --accent-tint-2: rgba(10, 132, 255, .34);
+      --focus: rgba(10, 132, 255, .8);
+      --red-text: #ff6961;    --red-tint:    rgba(255, 69, 58, .22);
+      --orange-text: #ff9f0a; --orange-tint: rgba(255, 159, 10, .2);
+      --yellow-text: #ffd426; --yellow-tint: rgba(255, 214, 10, .2);
+      --green-text: #30d158;  --green-tint:  rgba(48, 209, 88, .2);
+      --badge-bad: #ff453a;  --badge-bad-ink: #1c1c1e;
+      --badge-good: #30d158; --badge-good-ink: #0b2c15;
+      --sq-light: #ccbda9; --sq-dark: #7f7466;
+      --board-edge: rgba(0, 0, 0, .55);
+      --board-shadow: 0 2px 4px rgba(0, 0, 0, .55), 0 18px 40px -16px rgba(0, 0, 0, .85);
+      --piece-shadow: 0 1px 2px rgba(0, 0, 0, .5);
+      --wash-last: rgba(10, 132, 255, .24);
+      --wash-sel:  rgba(10, 132, 255, .36);
+      --ring-sel:  #0a84ff;
+      --wash-check: rgba(255, 69, 58, .46); --wash-check-2: rgba(255, 69, 58, .31);
+      --wash-bad:   rgba(255, 69, 58, .36); --wash-good:    rgba(48, 209, 88, .34);
+      --shadow-thumb: 0 3px 8px rgba(0, 0, 0, .44), 0 1px 1px rgba(0, 0, 0, .3);
+      --shadow-sheet: 0 20px 56px rgba(0, 0, 0, .66), 0 2px 8px rgba(0, 0, 0, .4);
+    }
+  }
+  /* Repeated verbatim so an explicit toggle wins in both directions. */
+  :root[data-theme="dark"] {
+    --bg: #0a0a0c; --surface: #1c1c1e; --surface-2: #2c2c2e;
+    --material: rgba(20, 20, 23, .74); --material-edge: rgba(255, 255, 255, .1);
+    --scrim: rgba(0, 0, 0, .5);
+    --label: #ffffff;
+    --label-2: rgba(235, 235, 245, .72);
+    --label-3: rgba(235, 235, 245, .55);
+    --label-4: rgba(235, 235, 245, .28);
+    --sep: rgba(84, 84, 88, .72); --sep-opaque: #38383a;
+    --fill-1: rgba(120, 120, 128, .36);
+    --fill-2: rgba(120, 120, 128, .24);
+    --fill-3: rgba(120, 120, 128, .16);
+    --accent: #0a84ff; --accent-fill: #0a6ce0; --accent-press: #0a5ed8;
+    --accent-text: #5aacff;
+    --accent-tint: rgba(10, 132, 255, .22); --accent-tint-2: rgba(10, 132, 255, .34);
+    --focus: rgba(10, 132, 255, .8);
+    --red-text: #ff6961;    --red-tint:    rgba(255, 69, 58, .22);
+    --orange-text: #ff9f0a; --orange-tint: rgba(255, 159, 10, .2);
+    --yellow-text: #ffd426; --yellow-tint: rgba(255, 214, 10, .2);
+    --green-text: #30d158;  --green-tint:  rgba(48, 209, 88, .2);
+    --badge-bad: #ff453a;  --badge-bad-ink: #1c1c1e;
+    --badge-good: #30d158; --badge-good-ink: #0b2c15;
+    --sq-light: #ccbda9; --sq-dark: #7f7466;
+    --board-edge: rgba(0, 0, 0, .55);
+    --board-shadow: 0 2px 4px rgba(0, 0, 0, .55), 0 18px 40px -16px rgba(0, 0, 0, .85);
+    --piece-shadow: 0 1px 2px rgba(0, 0, 0, .5);
+    --wash-last: rgba(10, 132, 255, .24);
+    --wash-sel:  rgba(10, 132, 255, .36);
+    --ring-sel:  #0a84ff;
+    --wash-check: rgba(255, 69, 58, .46); --wash-check-2: rgba(255, 69, 58, .31);
+    --wash-bad:   rgba(255, 69, 58, .36); --wash-good:    rgba(48, 209, 88, .34);
+    --shadow-thumb: 0 3px 8px rgba(0, 0, 0, .44), 0 1px 1px rgba(0, 0, 0, .3);
+    --shadow-sheet: 0 20px 56px rgba(0, 0, 0, .66), 0 2px 8px rgba(0, 0, 0, .4);
   }
 
   * { box-sizing: border-box; }
+  html { background: var(--bg); }
   body {
-    margin: 0;
-    min-height: 100dvh;
-    display: flex;
-    justify-content: center;
-    background: var(--bg);
-    color: var(--text);
-    /* Rounded type is most of the friendliness. No web font — the file stays
-       self-contained, and every platform has a rounded face worth using. */
-    font: 16px/1.5 ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN",
-          Nunito, "Segoe UI Variable", "Segoe UI", Roboto, system-ui, sans-serif;
-    font-weight: 500;
-    -webkit-font-smoothing: antialiased;
+    margin: 0; min-height: 100dvh; display: flex; justify-content: center;
+    background: var(--bg); color: var(--label);
+    /* The system font already ships optical sizing, tracking tables and
+       legibility tuning. No web font is worth losing that, and the file
+       stays self-contained. */
+    font-family: var(--font);
+    font-size: 17px; line-height: 24px; font-weight: 400; letter-spacing: -.024em;
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%;
   }
-  main { width: 100%; max-width: 460px; padding: 16px 16px 32px; display: flex; flex-direction: column; gap: 16px; }
-  .board-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-  .side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-  .levelbar { display: flex; align-items: center; gap: 10px; }
-  .levelbar-label { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
-
-  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  h1 { font-size: 17px; font-weight: 800; margin: 0; color: var(--text-strong); letter-spacing: -.01em; }
-
-  .segmented { display: flex; gap: 4px; padding: 4px; background: var(--snow); border: 2px solid var(--line); border-radius: 999px; }
-  .segmented button {
-    appearance: none; border: 0; background: transparent; color: var(--muted);
-    font: inherit; font-size: 13px; font-weight: 800; letter-spacing: .01em;
-    padding: 9px 16px; border-radius: 999px; cursor: pointer;   /* Fitts's: real hit area */
+  main {
+    width: 100%; max-width: 480px;
+    padding: var(--gutter) var(--gutter) var(--sp-8);
+    display: flex; flex-direction: column; gap: var(--sp-5);
   }
-  .segmented button[aria-pressed="true"] { background: var(--surface); color: var(--blue-text); box-shadow: 0 2px 0 var(--line); }
-  .segmented button:hover:not([aria-pressed="true"]) { color: var(--text); }
+  .board-col, .side { display: flex; flex-direction: column; gap: var(--sp-5); min-width: 0; }
 
-  /* Uniform connectedness: status, board and controls share one surface. */
+  /* ── Type ──────────────────────────────────────────────────────────
+     Tracking is size-specific: large sizes tighten, body sits near the
+     system value, small labels open up. No two sizes share a value. */
+  h1 { margin: 0; font-size: 28px; line-height: 34px; font-weight: 700; letter-spacing: -.014em; }
+  .status-line { font-size: 22px; line-height: 28px; font-weight: 600; letter-spacing: -.012em;
+                 color: var(--label); display: flex; align-items: center; gap: var(--sp-2); }
+  .status-sub, .hint, .review-note, .credit p, .moves-empty, .walk-pos, .moment .txt em {
+    font-size: 13px; line-height: 18px; font-weight: 400; letter-spacing: -.006em; color: var(--label-2);
+  }
+  .moments h3, .levelbar-label {
+    font-size: 15px; line-height: 20px; font-weight: 600; letter-spacing: -.016em;
+    text-transform: none; color: var(--label-2);
+  }
+  /* Segoe and Roboto are narrower than SF; its negative tracking reads
+     cramped in them. One escape hatch rather than a second scale. */
+  @supports not (font: -apple-system-body) {
+    body, h1, .status-line, .score .num, .lesson { letter-spacing: -.008em; }
+  }
+
+  /* ── Header: the first of exactly two translucent surfaces. The scroll
+     edge is a fading gradient, not a rule — at the top of the page it is
+     the background fading into itself, so it needs no scroll listener. */
+  header {
+    position: sticky; top: 0; z-index: 30;
+    /* A 28px title plus a segmented control plus a 44px button does not fit
+       a 320px phone in one row, so the row is allowed to break rather than
+       squeezing the control below its tap size. */
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+    gap: var(--sp-2) var(--sp-3);
+    margin: calc(var(--gutter) * -1) calc(var(--gutter) * -1) 0;
+    padding: 10px var(--gutter);
+    background: var(--material);
+    -webkit-backdrop-filter: var(--material-blur); backdrop-filter: var(--material-blur);
+    box-shadow: inset 0 1px 0 var(--material-edge);
+  }
+  header::after {
+    content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 24px;
+    pointer-events: none;
+    background: linear-gradient(to bottom, var(--bg) 0%, transparent 100%);
+  }
+  .header-right { display: flex; align-items: center; gap: var(--sp-2); margin-left: auto; min-width: 0; }
+  .header-right .segmented { min-width: 0; }
+  .header-right .segmented button { padding: 0 12px; }
+  .levelbar { display: flex; align-items: center; gap: var(--sp-3); }
+
+  /* ── Card: opaque, flat, no border. Figure against ground does the
+     work two pixels of stroke used to do. */
   .card {
-    background: var(--surface); border: 2px solid var(--line);
-    border-radius: var(--radius-lg);
-    padding: 16px; display: flex; flex-direction: column; gap: 14px;
+    background: var(--surface); border: 0; border-radius: var(--r-card);
+    padding: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-4);
+  }
+  #board-card { position: relative; }
+  /* The review is not one card — it is a stack of grouped sections. */
+  .review.card { background: transparent; padding: 0; gap: var(--sp-5); }
+
+  /* ── Buttons: three tiers and no fourth. Filled for the one action
+     that matters, tinted for transport, plain for everything else. */
+  button.action {
+    flex: 1; appearance: none; cursor: pointer; font-family: inherit;
+    font-size: 17px; line-height: 22px; font-weight: 600; letter-spacing: -.024em;
+    text-transform: none; min-height: 50px; padding: 13px 18px;
+    border: 0; border-radius: var(--r-control);
+    background: var(--fill-2); color: var(--label);
+    -webkit-tap-highlight-color: transparent;
+    transition: background var(--dur-tint) var(--ease-standard),
+                transform var(--dur-release) var(--ease-standard),
+                opacity var(--dur-release) linear;
+  }
+  button.action:hover:not(:disabled) { background: var(--fill-1); }
+  /* Feedback lands on the press, not the release, and springs back. */
+  button.action:active:not(:disabled) { transform: scale(.97); opacity: .72; transition-duration: var(--dur-press); }
+  button.action:disabled { opacity: .35; cursor: default; }
+  button.action.primary { background: var(--accent-fill); color: #fff; }
+  button.action.primary:hover:not(:disabled) { background: var(--accent-press); }
+  #walk-play, #walk-next {
+    background: var(--accent-tint); color: var(--accent-text);
+    min-height: var(--hit); padding: 11px 16px; flex: 1 1 auto; min-width: 0;
+  }
+  #walk-play:hover, #walk-next:hover { background: var(--accent-tint-2); }
+  #review-exit, #walk-exit {
+    background: transparent; color: var(--accent-text);
+    min-height: var(--hit); padding: 13px 10px; flex: 0 1 auto; min-width: 0;
+  }
+  #review-exit:hover, #walk-exit:hover { background: var(--fill-3); }
+  .controls { display: flex; gap: var(--sp-2); }
+
+  /* Fitts's: a 44px round target, not a 16px glyph. */
+  .icon-btn {
+    width: var(--hit); height: var(--hit); flex: none; padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    border: 0; border-radius: var(--r-pill);
+    background: var(--fill-2); color: var(--label-2); cursor: pointer;
+    transition: background var(--dur-tint) var(--ease-standard),
+                color var(--dur-tint) var(--ease-standard),
+                transform var(--dur-release) var(--ease-standard);
+  }
+  .icon-btn:hover { background: var(--fill-1); }
+  .icon-btn:active { transform: scale(.92); transition-duration: var(--dur-press); }
+  .icon-btn[aria-pressed="true"] { background: var(--accent-tint); color: var(--accent-text); }
+  .icon-btn .slash { display: none; }
+  .icon-btn[aria-pressed="false"] .waves { display: none; }
+  .icon-btn[aria-pressed="false"] .slash { display: inline; }
+
+  :where(button, a, [tabindex]):focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  .moment:focus-visible { position: relative; z-index: 2; }
+  .sq:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; z-index: 5; }
+
+  /* ── Segmented control with a real sliding thumb. Both groups in this
+     file have exactly two buttons, which is what the 50% math assumes. */
+  .segmented {
+    position: relative; display: flex; gap: 0; padding: 2px; min-height: 48px;
+    background: var(--fill-2); border: 0; border-radius: var(--r-control);
+  }
+  .segmented::before {
+    content: ""; position: absolute; z-index: 0; inset: 2px auto 2px 2px;
+    width: calc(50% - 2px); border-radius: var(--r-inner);
+    background: var(--surface); box-shadow: var(--shadow-thumb);
+    transition: transform var(--dur-release) var(--ease-bounce);
+  }
+  .segmented:has(> button:nth-of-type(2)[aria-pressed="true"])::before { transform: translateX(100%); }
+  .segmented button {
+    position: relative; z-index: 1; flex: 1; appearance: none; border: 0; background: transparent;
+    color: var(--label-2); font-family: inherit;
+    font-size: 15px; line-height: 20px; font-weight: 500; letter-spacing: -.016em;
+    min-height: var(--hit); padding: 0 16px; border-radius: var(--r-inner); cursor: pointer;
+    transition: color var(--dur-tint) var(--ease-standard),
+                transform var(--dur-release) var(--ease-standard);
+  }
+  .segmented button[aria-pressed="true"] { color: var(--label); font-weight: 600; }
+  .segmented button:active { transform: scale(.96); transition-duration: var(--dur-press); }
+  @supports not selector(:has(*)) {
+    .segmented::before { display: none; }
+    .segmented button[aria-pressed="true"] { background: var(--surface); box-shadow: var(--shadow-thumb); }
+  }
+  :root[data-theme="dark"] .segmented::before { background: #636366; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .segmented::before { background: #636366; }
   }
 
   /* Serial position: whose move it is comes first and largest. */
-  .status { min-height: 50px; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
-  .status-line { font-size: 21px; font-weight: 800; letter-spacing: -.02em; color: var(--text-strong); display: flex; align-items: center; gap: 8px; }
-  .status-sub { font-size: 13px; color: var(--muted); font-weight: 600; }
-  .status-line.check { color: var(--danger); }
-  .status-line.over { color: var(--green-text); }
-  .turn-dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--muted-soft); flex: none; }
+  .status { min-height: 52px; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
+  .status-line.check { color: var(--red-text); }
+  .status-line.over  { color: var(--label); }
+  /* The board can be rewound; when it is, the headline turns blue and says so. */
+  .status-line.reviewing { color: var(--accent-text); }
+  .turn-dot { width: 11px; height: 11px; border-radius: 50%; flex: none; box-shadow: inset 0 0 0 1px var(--sep-opaque); }
   .turn-dot.w { background: #fff; }
-  .turn-dot.b { background: #1a1d22; }
+  .turn-dot.b { background: var(--label); box-shadow: inset 0 0 0 1px var(--sep); }
 
-  /* Miller's: coordinates are printed, so nobody has to count files in their head. */
-  .board-wrap { display: grid; grid-template-columns: 14px 1fr; grid-template-rows: 1fr 14px; gap: 4px; }
-  .ranks, .files { display: grid; font-size: 11px; color: var(--muted); font-weight: 700; }
+  /* Miller's: coordinates are printed, so nobody counts files in their head. */
+  .board-wrap { display: grid; grid-template-columns: 16px 1fr; grid-template-rows: 1fr 16px; gap: 6px; }
+  .ranks, .files { display: grid; font-size: 11px; line-height: 14px; font-weight: 600;
+                   letter-spacing: .005em; color: var(--label-2); }
   .ranks { grid-template-rows: repeat(8, 1fr); align-items: center; justify-items: center; }
   .files { grid-template-columns: repeat(8, 1fr); justify-items: center; grid-column: 2; }
 
   .board {
-    position: relative;
-    container-type: inline-size;
+    position: relative; container-type: inline-size;
     display: grid; grid-template-columns: repeat(8, 1fr);
-    border-radius: 12px; overflow: hidden;
-    border: 2px solid var(--line);
+    border: 0; border-radius: var(--r-board); overflow: hidden;
+    box-shadow: var(--board-shadow), inset 0 0 0 1px var(--board-edge);
   }
   /* Fitts's: the board takes the full width available, so squares stay
      comfortably tappable (~48px on a phone) instead of decorative. */
   .sq {
     aspect-ratio: 1; position: relative; display: flex; align-items: center; justify-content: center;
     border: 0; padding: 0; cursor: pointer;
-    font-size: clamp(27px, 8.7vw, 38px); line-height: 1;
-    transition: background .1s ease;
+    font-size: clamp(27px, 8.7vw, 40px); line-height: 1;
+    -webkit-tap-highlight-color: transparent;
   }
   .sq.l { background: var(--sq-light); }
   .sq.d { background: var(--sq-dark); }
-  /* Highlights are translucent washes over the square, not replacement colours,
-     so a marked square still reads as light or dark and the board never breaks
-     its pattern. */
-  .sq::before { content: ""; position: absolute; inset: 0; pointer-events: none; }
-  .sq.last::before { background: var(--mark); }
-  .sq.sel::before  { background: var(--mark-strong); }
+  .sq[aria-disabled="true"] { cursor: default; }
+  /* Highlights are translucent washes over the square, not replacement
+     colours, so a marked square still reads as light or dark and the
+     board never breaks its pattern. */
+  .sq::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 1;
+    background: transparent; transition: background-color var(--dur-tint) var(--ease-standard);
+  }
+  .sq.last::before { background: var(--wash-last); }
+  .sq.sel::before  { background: var(--wash-sel); box-shadow: inset 0 0 0 3px var(--ring-sel); }
   .sq.check::before {
     background: radial-gradient(circle at center,
-      rgba(255,64,64,.95) 0%, rgba(255,64,64,.72) 38%, rgba(255,64,64,0) 72%);
+      var(--wash-check) 0%, var(--wash-check-2) 46%, transparent 74%);
   }
-  .sq:focus-visible { outline: 3px solid var(--blue); outline-offset: -3px; z-index: 3; }
-  /* Feedback belongs on the press, not the release — the piece answers the
-     finger before the move is even committed. */
-  .sq:active:not(:disabled) .piece { transform: scale(.92); }
-  .sq:disabled { cursor: default; }
-  /* The standard Cburnett pieces from Wikimedia Commons, inlined as SVG data
-     URIs: vector, so they are sharp at any board size, and the file stays
-     self-contained with no network requests. Their black outlines are what
-     makes a white piece readable on a light square — the reason text glyphs
-     needed a synthetic stroke before. */
+  /* Review marks: what you played against what the engine wanted, on the
+     same wash layer as every other highlight. Good is declared first so
+     that when both moves land on the same square — which happens often —
+     the square you actually played to wins, and the wash agrees with the
+     badge instead of contradicting it. */
+  .sq.mv-good::before { background: var(--wash-good); }
+  .sq.mv-bad::before  { background: var(--wash-bad); }
+
+  /* The standard Cburnett pieces from Wikimedia Commons, inlined as SVG
+     data URIs: vector, so they are sharp at any board size, and the file
+     stays self-contained with no network requests. */
   .piece {
     pointer-events: none; position: relative; z-index: 2;
-    transition: transform .12s cubic-bezier(.32,.72,.24,1);
     width: 92%; height: 92%;
     background-size: contain; background-position: center; background-repeat: no-repeat;
-    filter: drop-shadow(0 1px 1px rgba(0,0,0,.22));
+    filter: drop-shadow(var(--piece-shadow));
+    transition: transform var(--dur-release) var(--ease-standard);
   }
+  .sq:active:not([aria-disabled="true"]) .piece { transform: scale(.9); transition-duration: var(--dur-press); }
   .piece.wb { background-image: url("data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgNDUgNDUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgdmVyc2lvbj0iMS4xIiB3aWR0aD0iNDUiIGhlaWdodD0iNDUiPjxnIHN0eWxlPSJvcGFjaXR5OjE7IGZpbGw6bm9uZTsgZmlsbC1ydWxlOmV2ZW5vZGQ7IGZpbGwtb3BhY2l0eToxOyBzdHJva2U6IzAwMDAwMDsgc3Ryb2tlLXdpZHRoOjEuNTsgc3Ryb2tlLWxpbmVjYXA6cm91bmQ7IHN0cm9rZS1saW5lam9pbjpyb3VuZDsgc3Ryb2tlLW1pdGVybGltaXQ6NDsgc3Ryb2tlLWRhc2hhcnJheTpub25lOyBzdHJva2Utb3BhY2l0eToxOyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMCwwLjYpIj48ZyBzdHlsZT0iZmlsbDojZmZmZmZmOyBzdHJva2U6IzAwMDAwMDsgc3Ryb2tlLWxpbmVjYXA6YnV0dDsiPjxwYXRoIGQ9Ik0gOSwzNiBDIDEyLjM5LDM1LjAzIDE5LjExLDM2LjQzIDIyLjUsMzQgQyAyNS44OSwzNi40MyAzMi42MSwzNS4wMyAzNiwzNiBDIDM2LDM2IDM3LjY1LDM2LjU0IDM5LDM4IEMgMzguMzIsMzguOTcgMzcuMzUsMzguOTkgMzYsMzguNSBDIDMyLjYxLDM3LjUzIDI1Ljg5LDM4Ljk2IDIyLjUsMzcuNSBDIDE5LjExLDM4Ljk2IDEyLjM5LDM3LjUzIDksMzguNSBDIDcuNjUsMzguOTkgNi42OCwzOC45NyA2LDM4IEMgNy4zNSwzNi41NCA5LDM2IDksMzYgeiIvPjxwYXRoIGQ9Ik0gMTUsMzIgQyAxNy41LDM0LjUgMjcuNSwzNC41IDMwLDMyIEMgMzAuNSwzMC41IDMwLDMwIDMwLDMwIEMgMzAsMjcuNSAyNy41LDI2IDI3LjUsMjYgQyAzMywyNC41IDMzLjUsMTQuNSAyMi41LDEwLjUgQyAxMS41LDE0LjUgMTIsMjQuNSAxNy41LDI2IEMgMTcuNSwyNiAxNSwyNy41IDE1LDMwIEMgMTUsMzAgMTQuNSwzMC41IDE1LDMyIHoiLz48cGF0aCBkPSJNIDI1IDggQSAyLjUgMi41IDAgMSAxICAyMCw4IEEgMi41IDIuNSAwIDEgMSAgMjUgOCB6Ii8+PC9nPjxwYXRoIGQ9Ik0gMTcuNSwyNiBMIDI3LjUsMjYgTSAxNSwzMCBMIDMwLDMwIE0gMjIuNSwxNS41IEwgMjIuNSwyMC41IE0gMjAsMTggTCAyNSwxOCIgc3R5bGU9ImZpbGw6bm9uZTsgc3Ryb2tlOiMwMDAwMDA7IHN0cm9rZS1saW5lam9pbjptaXRlcjsiLz48L2c+PC9zdmc+"); }
   .piece.wk { background-image: url("data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgNDUgNDUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgd2lkdGg9IjQ1IiBoZWlnaHQ9IjQ1Ij48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBzdHJva2Utd2lkdGg9IjEuNSI+PHBhdGggc3Ryb2tlLWxpbmVqb2luPSJtaXRlciIgZD0iTTIyLjUgMTEuNjNWNk0yMCA4aDUiLz48cGF0aCBmaWxsPSIjZmZmIiBzdHJva2UtbGluZWNhcD0iYnV0dCIgc3Ryb2tlLWxpbmVqb2luPSJtaXRlciIgZD0iTTIyLjUgMjVzNC41LTcuNSAzLTEwLjVjMCAwLTEtMi41LTMtMi41cy0zIDIuNS0zIDIuNWMtMS41IDMgMyAxMC41IDMgMTAuNSIvPjxwYXRoIGZpbGw9IiNmZmYiIGQ9Ik0xMi41IDM3YzUuNSAzLjUgMTQuNSAzLjUgMjAgMHYtN3M5LTQuNSA2LTEwLjVjLTQtNi41LTEzLjUtMy41LTE2IDRWMjd2LTMuNWMtMi41LTcuNS0xMi0xMC41LTE2LTQtMyA2IDYgMTAuNSA2IDEwLjV2NyIvPjxwYXRoIGQ9Ik0xMi41IDMwYzUuNS0zIDE0LjUtMyAyMCAwbS0yMCAzLjVjNS41LTMgMTQuNS0zIDIwIDBtLTIwIDMuNWM1LjUtMyAxNC41LTMgMjAgMCIvPjwvZz48L3N2Zz4="); }
   .piece.wn { background-image: url("data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgNDUgNDUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgdmVyc2lvbj0iMS4xIiB3aWR0aD0iNDUiIGhlaWdodD0iNDUiPjxnIHN0eWxlPSJvcGFjaXR5OjE7IGZpbGw6bm9uZTsgZmlsbC1vcGFjaXR5OjE7IGZpbGwtcnVsZTpldmVub2RkOyBzdHJva2U6IzAwMDAwMDsgc3Ryb2tlLXdpZHRoOjEuNTsgc3Ryb2tlLWxpbmVjYXA6cm91bmQ7c3Ryb2tlLWxpbmVqb2luOnJvdW5kO3N0cm9rZS1taXRlcmxpbWl0OjQ7IHN0cm9rZS1kYXNoYXJyYXk6bm9uZTsgc3Ryb2tlLW9wYWNpdHk6MTsiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDAsMC4zKSI+PHBhdGgKICAgICAgZD0iTSAyMiwxMCBDIDMyLjUsMTEgMzguNSwxOCAzOCwzOSBMIDE1LDM5IEMgMTUsMzAgMjUsMzIuNSAyMywxOCIKICAgICAgc3R5bGU9ImZpbGw6I2ZmZmZmZjsgc3Ryb2tlOiMwMDAwMDA7IiAvPjxwYXRoCiAgICAgIGQ9Ik0gMjQsMTggQyAyNC4zOCwyMC45MSAxOC40NSwyNS4zNyAxNiwyNyBDIDEzLDI5IDEzLjE4LDMxLjM0IDExLDMxIEMgOS45NTgsMzAuMDYgMTIuNDEsMjcuOTYgMTEsMjggQyAxMCwyOCAxMS4xOSwyOS4yMyAxMCwzMCBDIDksMzAgNS45OTcsMzEgNiwyNiBDIDYsMjQgMTIsMTQgMTIsMTQgQyAxMiwxNCAxMy44OSwxMi4xIDE0LDEwLjUgQyAxMy4yNyw5LjUwNiAxMy41LDguNSAxMy41LDcuNSBDIDE0LjUsNi41IDE2LjUsMTAgMTYuNSwxMCBMIDE4LjUsMTAgQyAxOC41LDEwIDE5LjI4LDguMDA4IDIxLDcgQyAyMiw3IDIyLDEwIDIyLDEwIgogICAgICBzdHlsZT0iZmlsbDojZmZmZmZmOyBzdHJva2U6IzAwMDAwMDsiIC8+PHBhdGgKICAgICAgZD0iTSA5LjUgMjUuNSBBIDAuNSAwLjUgMCAxIDEgOC41LDI1LjUgQSAwLjUgMC41IDAgMSAxIDkuNSAyNS41IHoiCiAgICAgIHN0eWxlPSJmaWxsOiMwMDAwMDA7IHN0cm9rZTojMDAwMDAwOyIgLz48cGF0aAogICAgICBkPSJNIDE1IDE1LjUgQSAwLjUgMS41IDAgMSAxICAxNCwxNS41IEEgMC41IDEuNSAwIDEgMSAgMTUgMTUuNSB6IgogICAgICB0cmFuc2Zvcm09Im1hdHJpeCgwLjg2NiwwLjUsLTAuNSwwLjg2Niw5LjY5MywtNS4xNzMpIgogICAgICBzdHlsZT0iZmlsbDojMDAwMDAwOyBzdHJva2U6IzAwMDAwMDsiIC8+PC9nPjwvc3ZnPg=="); }
@@ -166,214 +414,299 @@
   .piece.bq { background-image: url("data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgNDUgNDUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgdmVyc2lvbj0iMS4xIiB3aWR0aD0iNDUiCmhlaWdodD0iNDUiPjxnIHN0eWxlPSJmaWxsOiMwMDAwMDA7c3Ryb2tlOiMwMDAwMDA7c3Ryb2tlLXdpZHRoOjEuNTsgc3Ryb2tlLWxpbmVjYXA6cm91bmQ7c3Ryb2tlLWxpbmVqb2luOnJvdW5kIj48cGF0aCBkPSJNIDksMjYgQyAxNy41LDI0LjUgMzAsMjQuNSAzNiwyNiBMIDM4LjUsMTMuNSBMIDMxLDI1IEwgMzAuNywxMC45IEwgMjUuNSwyNC41IEwgMjIuNSwxMCBMIDE5LjUsMjQuNSBMIDE0LjMsMTAuOSBMIDE0LDI1IEwgNi41LDEzLjUgTCA5LDI2IHoiCiAgICBzdHlsZT0ic3Ryb2tlLWxpbmVjYXA6YnV0dDtmaWxsOiMwMDAwMDAiIC8+PHBhdGggZD0ibSA5LDI2IGMgMCwyIDEuNSwyIDIuNSw0IDEsMS41IDEsMSAwLjUsMy41IC0xLjUsMSAtMSwyLjUgLTEsMi41IC0xLjUsMS41IDAsMi41IDAsMi41IDYuNSwxIDE2LjUsMSAyMywwIDAsMCAxLjUsLTEgMCwtMi41IDAsMCAwLjUsLTEuNSAtMSwtMi41IC0wLjUsLTIuNSAtMC41LC0yIDAuNSwtMy41IDEsLTIgMi41LC0yIDIuNSwtNCAtOC41LC0xLjUgLTE4LjUsLTEuNSAtMjcsMCB6IiAvPjxwYXRoIGQ9Ik0gMTEuNSwzMCBDIDE1LDI5IDMwLDI5IDMzLjUsMzAiIC8+PHBhdGggZD0ibSAxMiwzMy41IGMgNiwtMSAxNSwtMSAyMSwwIiAvPjxjaXJjbGUgY3g9IjYiIGN5PSIxMiIgcj0iMiIgLz48Y2lyY2xlIGN4PSIxNCIgY3k9IjkiIHI9IjIiIC8+PGNpcmNsZSBjeD0iMjIuNSIgY3k9IjgiIHI9IjIiIC8+PGNpcmNsZSBjeD0iMzEiIGN5PSI5IiByPSIyIiAvPjxjaXJjbGUgY3g9IjM5IiBjeT0iMTIiIHI9IjIiIC8+PHBhdGggZD0iTSAxMSwzOC41IEEgMzUsMzUgMSAwIDAgMzQsMzguNSIKICAgIHN0eWxlPSJmaWxsOm5vbmU7IHN0cm9rZTojMDAwMDAwO3N0cm9rZS1saW5lY2FwOmJ1dHQ7IiAvPjxnIHN0eWxlPSJmaWxsOm5vbmU7IHN0cm9rZTojZmZmZmZmOyI+PHBhdGggZD0iTSAxMSwyOSBBIDM1LDM1IDEgMCAxIDM0LDI5IiAvPjxwYXRoIGQ9Ik0gMTIuNSwzMS41IEwgMzIuNSwzMS41IiAvPjxwYXRoIGQ9Ik0gMTEuNSwzNC41IEEgMzUsMzUgMSAwIDAgMzMuNSwzNC41IiAvPjxwYXRoIGQ9Ik0gMTAuNSwzNy41IEEgMzUsMzUgMSAwIDAgMzQuNSwzNy41IiAvPjwvZz48L2c+PC9zdmc+"); }
   .piece.br { background-image: url("data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgNDUgNDUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgdmVyc2lvbj0iMS4xIiB3aWR0aD0iNDUiIGhlaWdodD0iNDUiPjxnIHN0eWxlPSJvcGFjaXR5OjE7IGZpbGw6IzAwMDAwMDsgZmlsbC1vcGFjaXR5OjE7IGZpbGwtcnVsZTpldmVub2RkOyBzdHJva2U6IzAwMDAwMDsgc3Ryb2tlLXdpZHRoOjEuNTsgc3Ryb2tlLWxpbmVjYXA6cm91bmQ7c3Ryb2tlLWxpbmVqb2luOnJvdW5kO3N0cm9rZS1taXRlcmxpbWl0OjQ7IHN0cm9rZS1kYXNoYXJyYXk6bm9uZTsgc3Ryb2tlLW9wYWNpdHk6MTsiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDAsMC4zKSI+PHBhdGgKICAgICAgZD0iTSA5LDM5IEwgMzYsMzkgTCAzNiwzNiBMIDksMzYgTCA5LDM5IHogIgogICAgICBzdHlsZT0ic3Ryb2tlLWxpbmVjYXA6YnV0dDsiIC8+PHBhdGgKICAgICAgZD0iTSAxMi41LDMyIEwgMTQsMjkuNSBMIDMxLDI5LjUgTCAzMi41LDMyIEwgMTIuNSwzMiB6ICIKICAgICAgc3R5bGU9InN0cm9rZS1saW5lY2FwOmJ1dHQ7IiAvPjxwYXRoCiAgICAgIGQ9Ik0gMTIsMzYgTCAxMiwzMiBMIDMzLDMyIEwgMzMsMzYgTCAxMiwzNiB6ICIKICAgICAgc3R5bGU9InN0cm9rZS1saW5lY2FwOmJ1dHQ7IiAvPjxwYXRoCiAgICAgIGQ9Ik0gMTQsMjkuNSBMIDE0LDE2LjUgTCAzMSwxNi41IEwgMzEsMjkuNSBMIDE0LDI5LjUgeiAiCiAgICAgIHN0eWxlPSJzdHJva2UtbGluZWNhcDpidXR0O3N0cm9rZS1saW5lam9pbjptaXRlcjsiIC8+PHBhdGgKICAgICAgZD0iTSAxNCwxNi41IEwgMTEsMTQgTCAzNCwxNCBMIDMxLDE2LjUgTCAxNCwxNi41IHogIgogICAgICBzdHlsZT0ic3Ryb2tlLWxpbmVjYXA6YnV0dDsiIC8+PHBhdGgKICAgICAgZD0iTSAxMSwxNCBMIDExLDkgTCAxNSw5IEwgMTUsMTEgTCAyMCwxMSBMIDIwLDkgTCAyNSw5IEwgMjUsMTEgTCAzMCwxMSBMIDMwLDkgTCAzNCw5IEwgMzQsMTQgTCAxMSwxNCB6ICIKICAgICAgc3R5bGU9InN0cm9rZS1saW5lY2FwOmJ1dHQ7IiAvPjxwYXRoCiAgICAgIGQ9Ik0gMTIsMzUuNSBMIDMzLDM1LjUgTCAzMywzNS41IgogICAgICBzdHlsZT0iZmlsbDpub25lOyBzdHJva2U6I2ZmZmZmZjsgc3Ryb2tlLXdpZHRoOjE7IHN0cm9rZS1saW5lam9pbjptaXRlcjsiIC8+PHBhdGgKICAgICAgZD0iTSAxMywzMS41IEwgMzIsMzEuNSIKICAgICAgc3R5bGU9ImZpbGw6bm9uZTsgc3Ryb2tlOiNmZmZmZmY7IHN0cm9rZS13aWR0aDoxOyBzdHJva2UtbGluZWpvaW46bWl0ZXI7IiAvPjxwYXRoCiAgICAgIGQ9Ik0gMTQsMjkuNSBMIDMxLDI5LjUiCiAgICAgIHN0eWxlPSJmaWxsOm5vbmU7IHN0cm9rZTojZmZmZmZmOyBzdHJva2Utd2lkdGg6MTsgc3Ryb2tlLWxpbmVqb2luOm1pdGVyOyIgLz48cGF0aAogICAgICBkPSJNIDE0LDE2LjUgTCAzMSwxNi41IgogICAgICBzdHlsZT0iZmlsbDpub25lOyBzdHJva2U6I2ZmZmZmZjsgc3Ryb2tlLXdpZHRoOjE7IHN0cm9rZS1saW5lam9pbjptaXRlcjsiIC8+PHBhdGgKICAgICAgZD0iTSAxMSwxNCBMIDM0LDE0IgogICAgICBzdHlsZT0iZmlsbDpub25lOyBzdHJva2U6I2ZmZmZmZjsgc3Ryb2tlLXdpZHRoOjE7IHN0cm9rZS1saW5lam9pbjptaXRlcjsiIC8+PC9nPjwvc3ZnPg=="); }
 
-  /* Postel's, the prevention half: legal destinations are shown, illegal ones
-     are simply not offered — so an illegal move is unreachable, not rejected. */
-  .dot { position: absolute; width: 28%; height: 28%; border-radius: 50%; background: var(--hint); pointer-events: none; z-index: 2; }
-  .ring { position: absolute; inset: 5%; border-radius: 50%; border: 4px solid var(--hint); pointer-events: none; z-index: 2; }
+  /* Postel's, the prevention half: legal destinations are shown, illegal
+     ones are simply not offered — so an illegal move is unreachable,
+     not rejected. The hint flips with the square: no single colour
+     clears 3:1 on both stone tones. */
+  .dot  { position: absolute; width: 26%; height: 26%; border-radius: 50%; pointer-events: none; z-index: 3; }
+  .ring { position: absolute; inset: 5%; border-radius: 50%; border: 4px solid; pointer-events: none; z-index: 3; }
+  .sq.l .dot { background: var(--hint-on-light); }
+  .sq.d .dot { background: var(--hint-on-dark); }
+  .sq.l .ring { background: none; border-color: var(--hint-on-light); }
+  .sq.d .ring { background: none; border-color: var(--hint-on-dark); }
 
-  .controls { display: flex; gap: 8px; }
-  /* The thick bottom edge is not decoration: it makes the button look pressable
-     before you touch it, and the press physically moves. Affordance you can see
-     and feel beats a flat rectangle that only reacts to hover. */
-  button.action {
-    flex: 1; appearance: none; font: inherit; font-size: 14px; font-weight: 800;
-    text-transform: uppercase; letter-spacing: .06em;
-    padding: 13px 14px 13px; border-radius: var(--radius); cursor: pointer;
-    background: var(--surface); color: var(--text);
-    border: 2px solid var(--line); border-bottom-width: 4px;
-    transition: filter .1s ease, background .1s ease;
+  /* Red and green are the fast channel but never the only one: the move
+     you played and the move that was better each carry a glyph. */
+  .mark-glyph {
+    position: absolute; top: 4%; right: 4%; z-index: 4; pointer-events: none;
+    width: 18px; height: 18px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font); font-size: 11px; line-height: 1; font-weight: 700; letter-spacing: 0;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .3);
   }
-  button.action:hover:not(:disabled) { background: var(--snow); }
-  button.action:active:not(:disabled) { border-bottom-width: 2px; transform: translateY(2px); }
-  button.action:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
-  button.action:disabled { opacity: .5; cursor: default; }
-  /* Von Restorff: the one green button appears only when the game is over. */
-  button.action.primary {
-    background: var(--green-btn); border-color: #2a6600; color: #fff;
-  }
-  button.action.primary:hover:not(:disabled) { filter: brightness(1.05); background: var(--green); }
+  .mark-glyph.bad  { background: var(--badge-bad);  color: var(--badge-bad-ink); }
+  .mark-glyph.good { background: var(--badge-good); color: var(--badge-good-ink); }
+  @container (min-width: 400px) { .mark-glyph { width: 22px; height: 22px; font-size: 13px; } }
+  @supports selector(:has(*)) { .sq:has(.mark-glyph) .piece { transform: scale(.86) translateY(4%); } }
 
-  /* Occam's: promotion is four choices that exist for a fraction of a second
-     per game — so they appear only at that moment, never before. */
-  .promo { display: none; flex-direction: column; gap: 8px; padding: 12px; background: var(--blue-soft); border-radius: var(--radius); }
-  .promo.show { display: flex; }
-  .promo-label { font-size: 13px; font-weight: 600; }
-  .promo-row { display: flex; gap: 8px; }
+  /* The piece travels instead of teleporting: a move you can see happening
+     is a move you can follow. Critically damped — a replayed move is not a
+     flick, so it gets no overshoot. The shadow lifts and lands with it. */
+  .flyer {
+    position: absolute; z-index: 6; pointer-events: none; will-change: transform;
+    transition: transform var(--dur-move) var(--ease-standard);
+    animation: piece-lift var(--dur-move) var(--ease-standard) both;
+  }
+  @keyframes piece-lift {
+    0%   { filter: drop-shadow(var(--piece-shadow)); }
+    38%  { filter: drop-shadow(0 7px 11px rgba(0, 0, 0, .3)); }
+    100% { filter: drop-shadow(var(--piece-shadow)); }
+  }
+  @keyframes panel-in { from { opacity: 0; transform: translate3d(0, 8px, 0); } to { opacity: 1; transform: none; } }
+  @keyframes scrim-in { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes sheet-in {
+    from { opacity: 0; transform: scale(.94) translate3d(0, -10px, 0); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  /* Occam's: promotion is four choices that exist for a fraction of a
+     second per game — so they appear only at that moment. The second
+     translucent surface, anchored to the board it belongs to rather than
+     pinned to the viewport, because this file has no focus trap to make
+     a real modal safe. */
+  .promo {
+    display: none; flex-direction: column; gap: var(--sp-3);
+    position: relative; z-index: 12;
+    padding: var(--sp-4); border-radius: var(--r-sheet); transform-origin: 50% 0;
+    background: var(--material);
+    -webkit-backdrop-filter: var(--material-blur); backdrop-filter: var(--material-blur);
+    box-shadow: var(--shadow-sheet), inset 0 .5px 0 var(--material-edge);
+  }
+  .promo.show { display: flex; animation: sheet-in var(--dur-sheet) var(--ease-bounce) both; }
+  .promo-label { font-size: 17px; line-height: 22px; font-weight: 600; letter-spacing: -.024em; color: var(--label); }
+  .promo-row { display: flex; gap: var(--sp-2); }
   .promo-row button {
-    flex: 1; font: inherit; font-size: 28px; line-height: 1; padding: 10px 0;
-    background: var(--surface); border: 2px solid var(--line); border-bottom-width: 4px;
-    border-radius: 14px; cursor: pointer;
+    flex: 1; min-height: 56px; min-width: var(--hit); padding: 8px 0; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--surface); border: 0; border-radius: var(--r-board);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .08);
+    transition: background var(--dur-tint) var(--ease-standard),
+                transform var(--dur-release) var(--ease-standard);
   }
-  .promo-row button:active { border-bottom-width: 2px; transform: translateY(2px); }
-  .promo-row .piece { width: 34px; height: 34px; display: inline-block; }
-  /* Hick's + sensible default: queen is the answer >95% of the time, so it
-     leads and is visually heavier. The other three stay available, not equal. */
-  .promo-row button.first { border-color: var(--green-edge); background: var(--green-soft); }
-  .promo-row button:hover { background: var(--snow); }
-  .promo-row button.first:hover { background: var(--green-soft); }
-
-  .meta { display: flex; gap: 8px; }
-  .meta div { flex: 1; padding: 10px 8px; text-align: center; background: var(--surface); border: 2px solid var(--line); border-radius: var(--radius); }
-  .meta .value { font-size: 17px; font-weight: 800; letter-spacing: -.01em; min-height: 25px; color: var(--text-strong); }
-  .meta .label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; font-weight: 800; }
+  .promo-row button:active { transform: scale(.94); transition-duration: var(--dur-press); }
+  /* Hick's + sensible default: queen is the answer over 95% of the time,
+     so it is ringed. The other three stay available, not equal. */
+  .promo-row button.first { box-shadow: 0 0 0 2px var(--accent), 0 1px 2px rgba(0, 0, 0, .08); }
+  .promo-row .piece { width: 38px; height: 38px; display: inline-block; }
+  @supports selector(:has(*)) {
+    #board-card .board-wrap { transition: transform var(--dur-sheet) var(--ease-standard); }
+    #board-card:has(.promo.show) .board-wrap { transform: scale(.985); }
+    #board-card:has(.promo.show) .board::before {
+      content: ""; position: absolute; inset: 0; z-index: 8; pointer-events: none;
+      background: var(--scrim); border-radius: inherit;
+      animation: scrim-in var(--dur-tint) var(--ease-standard) both;
+    }
+  }
 
   /* Miller's again: the move list is the interface remembering the game so
-     the player doesn't have to. Chunked in numbered pairs, newest visible. */
-  .moves { background: var(--surface); border: 2px solid var(--line); border-radius: var(--radius); max-height: 132px; overflow-y: auto; }
-  .moves-empty { padding: 14px; font-size: 13px; color: var(--muted); text-align: center; font-weight: 600; }
-  .moves table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
-  .moves td { padding: 5px 8px; }
-  .moves td.n { color: var(--muted); width: 34px; }
-  .moves td.m { font-weight: 500; }
-  .moves td.m { font-weight: 700; }
-  .moves tr:nth-child(even) { background: var(--snow); }
-  .moves .cur { color: var(--blue-text); font-weight: 800; }
-
-  /* Review marks: what you played (red) against what the engine wanted
-     (green), on the same wash layer as the other highlights. */
-  .sq.mv-bad::before  { background: rgba(214, 64, 64, .58); }
-  .sq.mv-good::before { background: rgba(58, 170, 96, .58); }
-
-  /* The piece travels instead of teleporting: a move you can see happening is
-     a move you can follow. Distance and direction are the information. */
-  /* Critically damped feel: decisive arrival, no overshoot. A replayed move is
-     not a flick, so it gets no bounce. */
-  .flyer {
-    position: absolute; z-index: 5; pointer-events: none; will-change: transform;
-    transition: transform .34s cubic-bezier(.32, .72, .24, 1);
+     the player doesn't have to. Hairline rows, tabular figures, and the
+     edges fade rather than ending on a rule. */
+  .moves {
+    background: var(--surface); border: 0; border-radius: var(--r-card);
+    max-height: 148px; overflow-y: auto; overscroll-behavior: contain;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+            mask-image: linear-gradient(to bottom, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
   }
+  .moves table { width: 100%; border-collapse: collapse;
+                 font-size: 12px; line-height: 16px; font-weight: 500; letter-spacing: 0;
+                 font-variant-numeric: tabular-nums; }
+  .moves td { padding: 9px 14px; }
+  .moves td.n { color: var(--label-2); width: 38px; font-weight: 400; }
+  .moves td.m { font-weight: 500; color: var(--label); }
+  .moves tr + tr td { border-top: .5px solid var(--sep); }
+  .moves .cur { color: var(--accent-text); font-weight: 600; }
+  .moves-empty { padding: 18px 14px; text-align: center; }
 
-  .walk { display: none; flex-direction: column; gap: 10px; }
-  .walk.show { display: flex; }
-  /* Never audio-only: everything spoken is also written here, so the
-     walkthrough works with the sound off, on a muted phone, or for someone
-     who simply doesn't want a voice. */
-  .walk-caption {
-    min-height: 48px; font-size: 14px; line-height: 1.5; padding: 12px 14px; font-weight: 600;
-    border-radius: var(--radius); background: var(--green-soft); color: var(--text-strong);
+  /* Material shown as an advantage, not two raw totals — one grouped row
+     per side, label above value, hairline between. */
+  .meta { display: flex; gap: 0; background: var(--surface); border-radius: var(--r-card); overflow: hidden; }
+  .meta > div { flex: 1; padding: 14px 16px; text-align: left; background: transparent; border: 0;
+                display: flex; flex-direction: column-reverse; gap: 2px; }
+  .meta > div + div { border-left: .5px solid var(--sep); }
+  .meta .value { min-height: 28px; font-size: 22px; line-height: 28px; font-weight: 600;
+                 letter-spacing: -.012em; font-variant-numeric: tabular-nums; color: var(--label); }
+  .meta .label { font-size: 13px; line-height: 18px; font-weight: 400; letter-spacing: -.006em;
+                 text-transform: none; color: var(--label-2); }
+
+  .review { display: none; flex-direction: column; }
+  .review.show { display: flex; animation: panel-in var(--dur-panel) var(--ease-standard) both; }
+  .review.busy .review-head { display: none; }
+  .review:not(.busy) .bar { display: none; }
+  .review-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-3); }
+  /* One enormous numeral and nothing competing with it. "/ 100" stays in
+     the markup and in the accessibility tree — it is just demoted. */
+  .score { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 6px; }
+  .score .num { font-size: 64px; line-height: 60px; font-weight: 700; letter-spacing: -.022em;
+                font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "case" 1;
+                color: var(--label); }
+  .score .of  { font-size: 17px; line-height: 24px; font-weight: 400; letter-spacing: -.024em; color: var(--label-2); }
+  .score .who { flex-basis: 100%; margin-top: 2px; display: block;
+                font-size: 15px; line-height: 20px; font-weight: 500; letter-spacing: -.016em;
+                text-transform: none; color: var(--label-2); }
+  .score .who::first-letter { text-transform: uppercase; }
+
+  /* Zeigarnik: a review of a long game takes seconds, so it says where it
+     is rather than freezing on a spinner. */
+  .bar { height: 4px; border-radius: 2px; background: var(--fill-1); overflow: hidden; }
+  .bar span { display: block; height: 100%; width: 0; border-radius: 2px;
+              background: var(--accent); transition: width 220ms var(--ease-standard); }
+
+  /* Serial position: the one sentence worth remembering goes first, and it
+     is plain text at reading size, not a coloured callout. */
+  .lesson { font-size: 20px; line-height: 28px; font-weight: 400; letter-spacing: -.016em; color: var(--label); }
+  .lesson b { font-weight: 600; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px; min-height: 28px;
+    padding: 4px 11px; border: 0; border-radius: var(--r-pill);
+    background: var(--fill-2); color: var(--label-2);
+    font-size: 15px; line-height: 20px; font-weight: 500; letter-spacing: -.016em;
+    font-variant-numeric: tabular-nums;
   }
-  .walk-caption b { font-weight: 800; }
-  .walk-caption.quiet { background: var(--snow); border: 2px solid var(--line); color: var(--muted); }
-  .walk-controls { display: flex; gap: 8px; align-items: center; }
-  .walk-controls .action { padding: 11px 12px; font-size: 14px; }
-  .walk-pos { font-size: 12px; color: var(--muted); font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; margin-left: auto; }
+  .chip b { font-weight: 600; color: var(--label); }
+  .chip.blunder { background: var(--red-tint); }    .chip.blunder b { color: var(--red-text); }
+  .chip.mistake { background: var(--orange-tint); } .chip.mistake b { color: var(--orange-text); }
+  .chip.inacc   { background: var(--yellow-tint); } .chip.inacc   b { color: var(--yellow-text); }
+  .chip.best    { background: var(--green-tint); }  .chip.best    b { color: var(--green-text); }
+  .chip.good    { background: var(--fill-2); }      .chip.good    b { color: var(--label); }
 
-  .review { display: none; flex-direction: column; gap: 12px; }
-  .review.show { display: flex; }
-  .review-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  .score { display: flex; align-items: baseline; gap: 8px; }
-  .score .num { font-size: 34px; font-weight: 800; letter-spacing: -.03em; color: var(--green-text); font-variant-numeric: tabular-nums; }
-  .score .of { font-size: 13px; color: var(--muted); font-weight: 700; }
-  .score .who { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; font-weight: 800; }
-
-  /* Zeigarnik: a review of a long game takes seconds, so it says where it is
-     rather than freezing on a spinner. */
-  .bar { height: 10px; border-radius: 999px; background: var(--line); overflow: hidden; }
-  .bar span { display: block; height: 100%; background: var(--green); border-radius: 999px; width: 0; transition: width .15s linear; }
-
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-  .chip { font-size: 12px; padding: 6px 12px; border-radius: 999px; border: 2px solid var(--line); color: var(--muted); font-weight: 700; }
-  .chip b { color: var(--text); font-weight: 800; }
-  .chip.blunder { border-color: var(--red-soft); } .chip.blunder b { color: var(--red-edge); }
-  .chip.mistake { border-color: #ffe0c2; }        .chip.mistake b { color: #e07b1a; }
-  .chip.inacc   { border-color: var(--amber-soft); } .chip.inacc b { color: #c79100; }
-  .chip.best    { border-color: var(--green-soft); } .chip.best b  { color: var(--green-text); }
-
-  /* Serial position: the one sentence worth remembering goes first. */
-  .lesson { font-size: 14px; line-height: 1.55; padding: 13px 14px; border-radius: var(--radius); background: var(--blue-soft); color: var(--text-strong); font-weight: 600; }
-  .lesson b { font-weight: 800; }
-
-  .moments { display: flex; flex-direction: column; gap: 6px; }
-  .moments h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0; font-weight: 800; }
-  /* Fitts's + target distance: each moment is one wide tap that takes the
+  /* Fitts's + target distance: each moment is one wide row that takes the
      board to that position — the lesson is the board, not the sentence. */
+  .moments { display: flex; flex-direction: column; gap: 0; }
+  .moments h3 { margin: 0 0 var(--sp-2) 4px; }
   .moment {
-    display: flex; align-items: flex-start; gap: 10px; width: 100%; text-align: left;
-    font: inherit; font-size: 13px; padding: 11px 12px; cursor: pointer;
-    background: var(--surface); border: 2px solid var(--line); border-bottom-width: 4px;
-    border-radius: var(--radius); color: var(--text); font-weight: 600;
+    display: flex; align-items: flex-start; gap: var(--sp-3);
+    width: 100%; min-height: 56px; text-align: left; cursor: pointer; font-family: inherit;
+    font-size: 15px; line-height: 20px; font-weight: 400; letter-spacing: -.016em; color: var(--label);
+    padding: 13px 14px; border: 0; border-radius: 0; background: var(--surface);
+    transition: background var(--dur-tint) var(--ease-standard),
+                transform var(--dur-release) var(--ease-standard);
   }
-  .moment:hover { background: var(--snow); }
-  .moment:active { border-bottom-width: 2px; transform: translateY(2px); }
-  .moment:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
-  .moment[aria-pressed="true"] { border-color: var(--blue); background: var(--blue-soft); }
-  .moment .tag { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; padding: 3px 8px; border-radius: 999px; flex: none; margin-top: 1px; }
-  .moment .tag.blunder { background: var(--red-soft); color: var(--red-edge); }
-  .moment .tag.mistake { background: #ffe8d2; color: #e07b1a; }
-  .moment .tag.inacc   { background: var(--amber-soft); color: #c79100; }
-  .moment .txt { flex: 1; }
-  .moment .txt b { font-weight: 800; color: var(--text-strong); }
-  .moment .txt em { font-style: normal; color: var(--muted); display: block; margin-top: 2px; font-size: 12px; }
-  .review-note { font-size: 11px; color: var(--muted); line-height: 1.5; margin: 0; font-weight: 600; }
+  .moment:first-of-type { border-radius: var(--r-card) var(--r-card) 0 0; }
+  .moment:last-of-type  { border-radius: 0 0 var(--r-card) var(--r-card); }
+  .moment:only-of-type  { border-radius: var(--r-card); }
+  .moment + .moment { box-shadow: inset 0 .5px 0 var(--sep); }
+  .moment:hover  { background: var(--surface-2); }
+  .moment:active { background: var(--fill-2); transform: scale(.99); transition-duration: var(--dur-press); }
+  .moment[aria-pressed="true"] { background: var(--accent-tint); }
+  .moment::after {
+    content: ""; flex: none; align-self: center; width: 7px; height: 7px; margin-left: 2px;
+    border-right: 2px solid var(--label-3); border-bottom: 2px solid var(--label-3);
+    border-radius: 1px; transform: rotate(-45deg);
+  }
+  .moment[aria-pressed="true"]::after { border-color: var(--accent-text); }
+  .moment .txt { flex: 1; min-width: 0; }
+  .moment .txt b { font-weight: 600; color: var(--label); }
+  .moment .txt em { font-style: normal; display: block; margin-top: 2px; }
+  .moment .tag {
+    flex: none; margin-top: 1px; padding: 4px 8px; border-radius: var(--r-tag);
+    font-size: 11px; line-height: 14px; font-weight: 600; letter-spacing: .005em; text-transform: none;
+  }
+  .moment .tag.blunder { background: var(--red-tint);    color: var(--red-text); }
+  .moment .tag.mistake { background: var(--orange-tint); color: var(--orange-text); }
+  .moment .tag.inacc   { background: var(--yellow-tint); color: var(--yellow-text); }
 
-  .hint { font-size: 12px; color: var(--muted); text-align: center; margin: 0; font-weight: 600; }
-  .credit { text-align: center; display: flex; flex-direction: column; gap: 8px; }
-  .credit p { margin: 0; font-size: 13px; color: var(--muted); font-weight: 600; }
-  .credit a { color: var(--blue-text); text-decoration: none; font-weight: 800; }
+  /* Never audio-only: everything spoken is also written here, so the
+     walkthrough works with the sound off, on a muted phone, or for
+     someone who simply doesn't want a voice. */
+  .walk { display: none; flex-direction: column; gap: var(--sp-3); }
+  .walk.show { display: flex; animation: panel-in var(--dur-panel) var(--ease-standard) both; }
+  .walk-caption {
+    min-height: 56px; padding: 14px 16px; border-radius: var(--r-board);
+    font-size: 17px; line-height: 24px; font-weight: 400; letter-spacing: -.024em;
+    background: var(--accent-tint); color: var(--label);
+    transition: background var(--dur-tint) var(--ease-standard);
+  }
+  .walk-caption b { font-weight: 600; }
+  .walk-caption.quiet { background: var(--fill-3); color: var(--label-2); }
+  .walk-controls { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }
+  .walk-pos { margin-left: auto; font-weight: 500; white-space: nowrap; }
+
+  .hint { text-align: center; margin: 0; }
+  .credit { display: flex; flex-direction: column; gap: var(--sp-2); text-align: center; }
+  .credit p { margin: 0; }
+  .credit a { color: var(--accent-text); text-decoration: none; font-weight: 500; }
   .credit a:hover { text-decoration: underline; }
   .credit code {
-    display: inline-block; font-size: 12px; padding: 8px 12px; border-radius: 10px;
-    background: var(--snow); border: 2px solid var(--line); color: var(--text);
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    display: inline-block; font-family: var(--font-mono); font-size: 12px;
+    padding: 8px 12px; border-radius: var(--r-inner);
+    background: var(--fill-2); border: 0; color: var(--label);
   }
-  /* Fitts's: 40px round target, not a 16px speaker glyph. */
-  .icon-btn {
-    width: 44px; height: 44px; flex: none;
-    display: flex; align-items: center; justify-content: center;
-    border-radius: 999px; background: var(--surface);
-    border: 2px solid var(--line); border-bottom-width: 4px;
-    color: var(--muted); cursor: pointer;
-    transition: background .1s ease;
-  }
-  .icon-btn:hover { background: var(--snow); }
-  .icon-btn:active { border-bottom-width: 2px; transform: translateY(2px); }
-  .icon-btn:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
-  .icon-btn[aria-pressed="true"] { color: var(--blue-text); border-color: var(--blue-soft); }
-  .icon-btn .slash { display: none; }
-  .icon-btn[aria-pressed="false"] .waves { display: none; }
-  .icon-btn[aria-pressed="false"] .slash { display: inline; }
-  .header-right { display: flex; align-items: center; gap: 8px; }
 
   /* Sized against the board rather than the viewport: a piece is always the
      same fraction of its square whether the board is 340px or 590px. */
-  @supports (font-size: 1cqw) {
-    .sq, .flyer { font-size: 9cqw; }
-  }
-
-  /* Desktop is not a big phone. The board takes the space it deserves — bigger
-     targets, Fitts's — and the record of the game moves beside it instead of
-     below the fold. Board left, panel right is what every chess site does. */
-  @media (min-width: 900px) {
-    body { align-items: flex-start; }
-    /* Two independent columns. The previous version placed the sidebar in a
-       row-spanning grid area, which let its height inflate the header row and
-       pushed the board hundreds of pixels down the page. */
-    main {
-      max-width: 1040px; padding: 24px 24px 40px;
-      display: grid; justify-content: center; align-items: start;
-      grid-template-columns: minmax(340px, 600px) minmax(300px, 360px);
-      column-gap: 24px;
+  @supports (font-size: 1cqw) { .sq, .flyer { font-size: 9cqw; } }
+  @supports (corner-shape: squircle) {
+    .card, .moves, .meta, .moment, .promo, button.action, .segmented, .board, .promo-row button {
+      corner-shape: squircle;
     }
-    .moves { max-height: 320px; }
-    .hint { text-align: left; }
-    .credit { text-align: left; align-items: flex-start; }
   }
 
-  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
-  /* Reduced motion keeps the feedback and drops the travel. */
+  /* Desktop is not a big phone. The board takes the space it deserves —
+     bigger targets, Fitts's — and the record of the game moves beside it
+     instead of below the fold. The header spans both columns so the two
+     cards start on the same line. */
+  @media (min-width: 900px) {
+    :root { --gutter: 1.5rem; }
+    body { align-items: flex-start; }
+    main {
+      max-width: 1080px; padding: var(--gutter) var(--gutter) 2.5rem;
+      display: grid; justify-content: center; align-items: start;
+      grid-template-columns: minmax(340px, 620px) minmax(320px, 380px);
+      column-gap: var(--sp-6);
+    }
+    header { grid-column: 1 / -1; }
+    .moves { max-height: 340px; }
+    .hint, .credit { text-align: left; }
+    .credit { align-items: flex-start; }
+    /* The record of the game and the review of it are two answers to the
+       same question; only one of them belongs on screen at a time. */
+    .review.show ~ .moves { display: none; }
+  }
+
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+             overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+  /* Reduced motion is a gentler equivalent, not the absence of feedback:
+     travel, scale and overshoot go, colour and opacity stay. */
   @media (prefers-reduced-motion: reduce) {
-    * { transition: none !important; animation: none !important; }
+    *, *::before, *::after {
+      animation-duration: .01ms !important; animation-iteration-count: 1 !important;
+      transition-duration: .01ms !important; scroll-behavior: auto !important;
+    }
+    button.action, .segmented button, .icon-btn, .promo-row button, .moment {
+      transition: background 140ms linear, color 140ms linear, opacity 140ms linear !important;
+      transform: none !important;
+    }
+    button.action:active:not(:disabled) { opacity: .6; transform: none !important; }
+    .icon-btn:active, .segmented button:active, .promo-row button:active,
+    .sq:active .piece { transform: none !important; }
+    .sq::before { transition: background-color 140ms linear !important; }
+    .bar span { transition: width 140ms linear !important; }
+    .review.show, .walk.show, .promo.show { animation: none !important; }
+    #board-card:has(.promo.show) .board-wrap { transform: none; }
+  }
+  /* Frostier, not transparent, when the system asks for it. */
+  @media (prefers-reduced-transparency: reduce) {
+    header, .promo { -webkit-backdrop-filter: none; backdrop-filter: none; }
+    header { background: var(--bg); box-shadow: 0 .5px 0 var(--sep); }
+    header::after { display: none; }
+    .promo { background: var(--surface); }
   }
   /* Higher contrast: firmer edges rather than a different palette. */
   @media (prefers-contrast: more) {
-    :root { --line: #b9b9b9; --line-strong: #8a8a8a; --muted: #5a5a5a; }
-    .card, .moves, .meta div, button.action, .icon-btn { border-color: var(--line-strong); }
+    :root { --label-2: rgba(60, 60, 67, .9); --label-3: rgba(60, 60, 67, .72);
+            --sep: var(--sep-opaque); --accent-text: #0040dd; --focus: rgba(0, 64, 221, .85); }
+    .card, .moves, .meta, .moment, .promo, button.action, .icon-btn, .segmented {
+      box-shadow: inset 0 0 0 1px var(--sep-opaque);
+    }
+    .board { box-shadow: var(--board-shadow), inset 0 0 0 1px rgba(0, 0, 0, .5); }
   }
 </style>
 </head>
 <body>
 <main>
-  <div class="board-col">
   <header>
     <h1>Chess</h1>
     <div class="header-right">
@@ -394,6 +727,7 @@
     </div>
   </header>
 
+  <div class="board-col">
   <!-- Mapping: the level belongs beside the opponent it applies to, not
        stranded under the buttons at the bottom of the board. -->
   <div class="levelbar" id="levelbar">
@@ -415,6 +749,10 @@
       <div class="board" id="board" role="grid" aria-label="Chess board"></div>
       <div class="files" id="files"></div>
     </div>
+
+    <!-- Minimize target distance: the control that un-rewinds the board sits
+         under the board, not 700px away in the review panel. -->
+    <button class="action" id="review-exit" style="display:none">Back to final position</button>
 
     <div class="promo" id="promo">
       <div class="promo-label" id="promo-label">Promote to</div>
@@ -442,9 +780,8 @@
         <span class="num" id="acc-num">—</span><span class="of">/ 100</span>
         <span class="who" id="acc-who">accuracy</span>
       </div>
-      <button class="action" id="review-exit" style="display:none; flex:none; width:auto;">Final position</button>
     </div>
-    <div class="bar" id="review-bar"><span id="review-fill"></span></div>
+    <div class="bar" id="review-bar" role="progressbar" aria-label="Reviewing your game" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="review-fill"></span></div>
     <div class="lesson" id="lesson"></div>
     <div class="chips" id="chips"></div>
     <div class="moments" id="moments"></div>
@@ -464,7 +801,7 @@
             <g class="slash"><path d="M17 9.5l5 5"></path><path d="M22 9.5l-5 5"></path></g>
           </svg>
         </button>
-        <button class="action" id="walk-exit" style="flex:none; width:auto;">Done</button>
+        <button class="action" id="walk-exit">Done</button>
         <span class="walk-pos" id="walk-pos"></span>
       </div>
     </div>
@@ -1102,7 +1439,8 @@
 
   const ui = { s: initial(), sel: null, targets: [], history: [], sans: [], last: null,
                vsCpu: true, depth: 2, busy: false, over: null, pendingPromo: null,
-               reviewing: false, review: null, viewIdx: null, viewState: null, viewMarks: null };
+               reviewing: false, review: null, viewIdx: null, viewState: null, viewMarks: null,
+               walk: null, walked: false, flyer: null };
 
   const squares = Array.from({ length: 64 }, (_, i) => {
     const b = document.createElement("button");
@@ -1236,9 +1574,9 @@
     else ui.over = null;
   }
 
-  function material() {
+  function material(board) {
     let w = 0, b = 0;
-    for (const p of ui.s.b) {
+    for (const p of board) {
       if (!p) continue;
       const v = VAL[p.toLowerCase()];
       if (isW(p)) w += v; else b += v;
@@ -1258,16 +1596,32 @@
       sq.classList.toggle("sel", !marks && ui.sel === i);
       sq.classList.toggle("check", i === checkSq && (!!marks || !ui.over));
       const target = marks ? null : ui.targets.find(m => m.to === i);
+      // Red and green are the fast channel, but they are not the only one: the
+      // played move and the better move each carry a glyph, so the board still
+      // says which is which without colour.
+      const badMark = !!marks && marks.bad.includes(i), goodMark = !!marks && marks.good.includes(i);
       sq.innerHTML = (p ? `<span class="piece ${colorOf(p)}${p.toLowerCase()}"></span>` : "")
-        + (target ? (p || target.ep ? '<span class="ring"></span>' : '<span class="dot"></span>') : "");
-      sq.disabled = !myTurn();
-      sq.setAttribute("aria-label", `${sqName(i)}${p ? `, ${colorOf(p) === "w" ? "white" : "black"} ${pieceName(p)}` : ", empty"}${target ? ", can move here" : ""}`);
+        + (target ? (p || target.ep ? '<span class="ring"></span>' : '<span class="dot"></span>') : "")
+        + (badMark ? '<span class="mark-glyph bad">\u2715</span>' : goodMark ? '<span class="mark-glyph good">\u2713</span>' : "");
+      // aria-disabled, not disabled: the review board must stay reachable by
+      // keyboard and screen reader. tap() already refuses illegal moves.
+      sq.setAttribute("aria-disabled", String(!myTurn()));
+      sq.setAttribute("aria-label", `${sqName(i)}${p ? `, ${colorOf(p) === "w" ? "white" : "black"} ${pieceName(p)}` : ", empty"}${target ? ", can move here" : ""}${badMark ? ", the move you played" : goodMark ? ", the better move" : ""}`);
       sq.setAttribute("aria-pressed", String(ui.sel === i));
     });
 
     const dot = c => `<span class="turn-dot ${c}"></span>`;
-    statusEl.classList.remove("check", "over");
-    if (ui.over) {
+    statusEl.classList.remove("check", "over", "reviewing");
+    // The board can be rewound to a key moment or replaying the walkthrough.
+    // When it is, the headline says so — one screen must state one reality.
+    if (ui.viewState && ui.viewIdx != null) {
+      statusEl.classList.add("reviewing");
+      const n = Math.floor(ui.viewIdx / 2) + 1;
+      statusEl.textContent = `Move ${n}${ui.viewIdx % 2 ? "…" : "."} ${ui.sans[ui.viewIdx] || ""}`;
+      subEl.textContent = marks
+        ? "The position before this move · ✕ what you played, ✓ what was better"
+        : "Replaying the game";
+    } else if (ui.over) {
       statusEl.classList.add("over");
       if (ui.over.type === "mate") {
         const w = ui.over.winner;
@@ -1294,7 +1648,7 @@
 
     // Material shown as an advantage, not two raw totals — nobody should be
     // adding up pawns in their head to know if they are winning.
-    const { w, b } = material();
+    const { w, b } = material(view.b);
     const diff = (w - b) / 100;
     el("mat-w").textContent = diff > 0 ? `+${diff}` : "—";
     el("mat-b").textContent = diff < 0 ? `+${-diff}` : "—";
@@ -1316,22 +1670,29 @@
 
     const reviewBtn = el("review");
     const canReview = !!ui.over && ui.history.length >= 2;
-    reviewBtn.style.display = canReview ? "" : "none";
+    // Once the review exists, re-running it at a fixed depth says the same
+    // thing again, so the button retires instead of competing.
+    reviewBtn.style.display = canReview && (!ui.review || ui.reviewing) ? "" : "none";
     reviewBtn.disabled = ui.reviewing;
-    reviewBtn.textContent = ui.reviewing ? "Reviewing…" : ui.review ? "Review again" : "Review game";
-    // Peak-End: after a game the useful next step is understanding it, so the
-    // review is the loud button — until you have used it, then Play again is.
+    reviewBtn.textContent = ui.reviewing ? "Reviewing…" : "Review game";
+    // Peak-End: after a game the loud button is always the next thing worth
+    // doing — review it, then walk it, and only then play again.
     const reviewIsNext = canReview && !ui.review && !ui.reviewing;
     reviewBtn.classList.toggle("primary", reviewIsNext);
     undoBtn.style.display = ui.over ? "none" : "";
     undoBtn.disabled = !ui.history.length || ui.busy || ui.reviewing || !!ui.viewState;
     restartBtn.textContent = ui.over ? "Play again" : "New game";
-    restartBtn.classList.toggle("primary", !!ui.over && !reviewIsNext);
-    levelBar.style.display = ui.vsCpu ? "flex" : "none";
+    restartBtn.classList.toggle("primary", !!ui.over && !reviewIsNext && (!ui.review || ui.walked));
+    // A difficulty switch has no business on a screen whose job is explaining
+    // the game you already finished.
+    levelBar.style.display = ui.vsCpu && !ui.review ? "flex" : "none";
     if (!ui.pendingPromo) promoEl.classList.remove("show");
   }
 
   const REVIEW_DEPTH = 3;
+  // A review is a chain of timeouts. The generation counter is how a new game
+  // or a second review tells the old chain to stop writing into the page.
+  let reviewGen = 0;
 
   function runReview() {
     const sides = ui.vsCpu ? ["w"] : ["w", "b"];
@@ -1339,10 +1700,16 @@
     ui.history.forEach((h, i) => { if (sides.includes(h.s.turn)) jobs.push({ i, h }); });
     if (!jobs.length) return;
 
+    endWalk();     // no-op unless a walkthrough is running
+    exitView();    // never recompute behind a board frozen on the old analysis
+    const gen = ++reviewGen;
     ui.reviewing = true;
     ui.review = { entries: [], done: 0, total: jobs.length, sides };
     el("review-panel").classList.add("show");
+    el("review-panel").classList.add("busy");
     el("review-exit").style.display = "none";
+    el("review-fill").style.width = "0";
+    liveEl.textContent = "Reviewing your game…";
     el("acc-num").textContent = "—";
     el("moments").innerHTML = "";
     el("chips").innerHTML = "";
@@ -1352,6 +1719,7 @@
 
     let k = 0;
     const step = () => {
+      if (!ui.review || gen !== reviewGen) return;
       const t0 = Date.now();
       // Work in ~90ms slices: long enough to make progress, short enough that
       // the progress bar and the page stay responsive between them.
@@ -1373,22 +1741,25 @@
         }
         ui.review.done = k;
       }
-      el("review-fill").style.width = `${Math.round(100 * k / jobs.length)}%`;
+      const pct = Math.round(100 * k / jobs.length);
+      el("review-fill").style.width = `${pct}%`;
+      el("review-bar").setAttribute("aria-valuenow", String(pct));
       el("lesson").innerHTML = `Looking at every move you played… <b>${k} of ${jobs.length}</b>`;
       if (k < jobs.length) setTimeout(step, 0);
-      else finishReview();
+      else finishReview(gen);
     };
     setTimeout(step, 0);
   }
 
-  function finishReview() {
+  function finishReview(gen) {
+    if (!ui.review || gen !== reviewGen) return;
     ui.reviewing = false;
+    el("review-panel").classList.remove("busy");
     const all = ui.review.entries;
     const mine = ui.vsCpu ? all.filter(e => e.side === "w") : all;
     const accuracy = mine.length ? mine.reduce((a, e) => a + e.accuracy, 0) / mine.length : 100;
 
-    el("review-bar").style.display = "none";
-    el("acc-num").textContent = accuracy.toFixed(1);
+    el("acc-num").textContent = String(Math.round(accuracy));
     el("acc-who").textContent = ui.vsCpu ? "your accuracy" : "both sides";
     el("lesson").innerHTML = lessonFrom(mine, accuracy, "w");
 
@@ -1421,30 +1792,45 @@
     }
     el("walk-start").style.display = "";
     el("walk-start").textContent = "Walk me through it";
+    el("walk-start").classList.toggle("primary", !ui.walked);
     el("review-note").textContent =
       `Reviewed with the built-in engine at depth ${REVIEW_DEPTH}. It reliably catches hung pieces, missed captures and mates; it is not a substitute for a real engine on quiet positional moves.`;
+    liveEl.textContent = `Review ready. Accuracy ${Math.round(accuracy)} out of 100`
+      + (key.length ? `, ${key.length} key moment${key.length === 1 ? "" : "s"} to look at.` : ", nothing stood out.");
     render();
   }
 
-  // Tap a moment and the board becomes the explanation: red is what you
-  // played, green is what the engine wanted.
+  // Tap a moment and the board becomes the explanation: ✕ is what you
+  // played, ✓ is what the engine wanted.
   function showMoment(entry, btn) {
+    if (ui.walk) return;              // the walkthrough owns the board while it runs
     const pressed = btn.getAttribute("aria-pressed") === "true";
-    Array.from(el("moments").children).forEach(c => c.setAttribute && c.setAttribute("aria-pressed", "false"));
+    clearMoments();
     if (pressed) { exitView(); return; }
     btn.setAttribute("aria-pressed", "true");
     ui.viewState = entry.state;
+    ui.viewIdx = entry.ply;
     ui.viewMarks = { bad: [entry.playedMove.from, entry.playedMove.to], good: [entry.bestMove.from, entry.bestMove.to] };
     el("review-exit").style.display = "";
     render();
+    liveEl.textContent = `Move ${Math.floor(entry.ply / 2) + 1}, ${entry.played}. ${entry.bestSan} was better.`;
+  }
+  function clearMoments() {
+    Array.from(el("moments").children).forEach(c => c.setAttribute && c.setAttribute("aria-pressed", "false"));
   }
   function exitView() {
-    ui.viewState = null; ui.viewMarks = null;
-    Array.from(el("moments").children).forEach(c => c.setAttribute && c.setAttribute("aria-pressed", "false"));
+    ui.viewState = null; ui.viewMarks = null; ui.viewIdx = null;
+    clearMoments();
     el("review-exit").style.display = "none";
     render();
   }
-  el("review-exit").addEventListener("click", exitView);
+  el("review-exit").addEventListener("click", () => {
+    exitView();
+    liveEl.textContent = "Back to the final position.";
+    // Never drop focus on the body: hand it to the list the button came from.
+    const back = el("moments").querySelector(".moment") || el("walk-start");
+    if (back && back.offsetParent !== null) back.focus();
+  });
   el("review").addEventListener("click", runReview);
 
   // --- guided walkthrough -------------------------------------------------
@@ -1473,6 +1859,7 @@
   function animateMove(state, m, onDone) {
     const size = boardEl.clientWidth ? boardEl.clientWidth / 8 : 0;
     if (!size || reducedMotion()) { onDone(); return; }
+    cancelFlyer();                            // never two pieces in the air at once
     const piece = m.piece;
     const fly = document.createElement("div");
     fly.className = `flyer piece ${colorOf(piece)}${piece.toLowerCase()}`;
@@ -1480,11 +1867,20 @@
     fly.style.left = (file(m.from) * size) + "px";
     fly.style.top = (rank(m.from) * size) + "px";
     boardEl.appendChild(fly);
+    ui.flyer = fly;
     squares[m.from].innerHTML = "";           // the piece is in flight, not at home
     raf(() => {
       fly.style.transform = `translate(${(file(m.to) - file(m.from)) * size}px, ${(rank(m.to) - rank(m.from)) * size}px)`;
     });
-    setTimeout(() => { fly.remove(); onDone(); }, 320);
+    setTimeout(() => {
+      if (ui.flyer === fly) ui.flyer = null;
+      fly.remove(); onDone();
+    }, 340);
+  }
+  // Skipping or pausing mid-flight must not leave a piece hanging in the air
+  // over a board that has already moved on, or a square it emptied still empty.
+  function cancelFlyer() {
+    if (ui.flyer) { ui.flyer.remove(); ui.flyer = null; }
   }
   const animate = (state, m) => new Promise(res => animateMove(state, m, res));
 
@@ -1530,6 +1926,7 @@
 
     // Show the position as it stood before the move, marked when it matters.
     ui.viewState = h.s;
+    ui.viewIdx = i;
     ui.viewMarks = n.key ? { bad: [h.m.from, h.m.to], good: [n.entry.bestMove.from, n.entry.bestMove.to] } : null;
     caption(n.text, !n.key);
     el("walk-pos").textContent = `${i + 1} / ${ui.history.length}`;
@@ -1562,11 +1959,13 @@
 
   async function startWalk() {
     if (!ui.review) return;
-    ui.walk = { idx: 0, playing: true };
+    exitView();                       // let go of any moment the board was holding
+    ui.walk = { idx: 0, playing: true, savedLast: ui.last };
     el("walk").classList.add("show");
     el("walk-start").style.display = "none";
     el("review-exit").style.display = "none";
     el("walk-play").textContent = "Pause";
+    el("walk-play").focus();
     syncVoice(Speech.on);
     const mine = ui.review.entries.filter(e => ui.vsCpu ? e.side === "w" : true);
     const acc = mine.length ? (mine.reduce((a, e) => a + e.accuracy, 0) / mine.length) : 100;
@@ -1582,14 +1981,24 @@
 
   function endWalk() {
     if (!ui.walk) return;
+    const w = ui.walk;
     ui.walk = null;
+    ui.walked = true;
     Speech.stop();
-    ui.viewState = null; ui.viewMarks = null;
+    cancelFlyer();
+    ui.viewState = null; ui.viewMarks = null; ui.viewIdx = null;
+    ui.last = w.savedLast;            // the replay borrowed the highlight; give it back
+    clearMoments();
+    el("review-exit").style.display = "none";
     el("walk").classList.remove("show");
     el("walk-start").style.display = "";
     el("walk-start").textContent = "Walk me through it again";
+    el("walk-start").classList.remove("primary");
     caption("");
+    // Only take focus if the control the user was on just disappeared.
+    const inWalk = el("walk").contains(document.activeElement);
     render();
+    if (inWalk || document.activeElement === document.body) el("walk-start").focus();
   }
 
   el("walk-start").addEventListener("click", startWalk);
@@ -1599,6 +2008,7 @@
     el("walk-play").textContent = ui.walk.playing ? "Pause" : "Play";
     walkGen++;                      // abandon whatever step is mid-flight
     Speech.stop();
+    cancelFlyer(); render();        // and put the piece it was carrying back
     if (ui.walk.playing) walkLoop();
   });
   el("walk-next").addEventListener("click", async () => {
@@ -1607,6 +2017,7 @@
     el("walk-play").textContent = "Play";
     walkGen++;
     Speech.stop();
+    cancelFlyer(); render();
     await walkStep();
   });
   el("walk-exit").addEventListener("click", endWalk);
@@ -1633,15 +2044,19 @@
   });
 
   function newGame() {
+    reviewGen++;                      // any review still slicing away stops here
+    cancelFlyer();
     Object.assign(ui, { s: initial(), sel:null, targets:[], history:[], sans:[], last:null, busy:false,
-                        over:null, pendingPromo:null, reviewing:false, review:null, viewState:null, viewMarks:null, walk:null });
+                        over:null, pendingPromo:null, reviewing:false, review:null, viewIdx:null,
+                        viewState:null, viewMarks:null, walk:null, walked:false });
     Speech.stop();
     el("walk").classList.remove("show");
     el("walk-start").style.display = "none";
+    el("walk-start").classList.remove("primary");
+    el("moments").innerHTML = "";
     promoEl.classList.remove("show");
     Sound.start();
-    el("review-panel").classList.remove("show");
-    el("review-bar").style.display = "";
+    el("review-panel").classList.remove("show", "busy");
     el("review-fill").style.width = "0";
     el("review-exit").style.display = "none";
     render();

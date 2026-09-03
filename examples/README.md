@@ -74,9 +74,9 @@ and almost every decision below follows from that.
 | **Prägnanz** | Two board colours, one highlight for the last move, one for check. No gradients, no piece shadows doing nothing. |
 | **Pareto** | The 20% is: pick a piece, see where it goes, move it. That path is one tap deep and never blocked. |
 | **Jakob's (pieces)** | Real chess pieces — the standard Cburnett set from Wikimedia Commons, inlined as SVG data URIs. Vector, so they stay sharp at any board size, and the file stays self-contained with no network requests. Their own black outlines are what make a white piece readable on a light square, which is what the text glyphs needed a synthetic stroke to fake. |
-| **Similarity / Prägnanz** | The board is exempt from the theme. Dark mode originally recoloured the squares, which put black pieces at 1.29:1 against them — the pattern survived, the pieces didn't. Classic square colours now hold in both themes; only the chrome around the board changes. |
-| **Peak-End (the review)** | The game ends into a lesson, not a dead end. At game over the review — not "Play again" — is the one filled button, because after a loss the useful next step is understanding it; once you've used it, Play again takes the highlight back. |
-| **Sound** | Ten sounds, each answering a question the screen answers slower. Your move and your opponent's move are deliberately different, so you can tell who moved without looking; an impossible move gets a dull thud rather than silence. A capture is heavier and darker than a quiet move; check is the one sound that is unmistakably not a move; take-back reverses rather than advances. Synthesised with WebAudio, so the file stays self-contained — no assets. |
+| **Similarity / Prägnanz** | The board stays a mid-tone stone object in both themes rather than following the chrome down. An earlier dark mode recoloured the squares toward black and put the black pieces at 1.29:1 against them — the pattern survived, the pieces didn't. The dark theme now only dims the two square colours; it never inverts them. |
+| **Peak-End (the review)** | The game ends into a lesson, not a dead end. Exactly one button is filled at a time, and it is always the next thing worth doing: at game over that is **Review game**, once the review lands it hands off to **Walk me through it**, and only after the walkthrough does **Play again** take the fill. The loud button is never the one that deletes the analysis. |
+| **Sound** | Eleven sounds, each answering a question the screen answers slower. Your move and your opponent's move are deliberately different, so you can tell who moved without looking; an impossible move gets a dull thud rather than silence. A capture is heavier than a quiet move; a move that gives check has its own sound rather than two stacked on top of each other. Recorded samples in `audio/`, with the original synthesised set kept behind them note for note — a sample that has not finished loading falls back to the synth rather than arriving late for the moment it explains. |
 
 ### The post-game review
 
@@ -148,35 +148,47 @@ than a mixer (Hick's), it remembers itself across visits (Tesler's), it survives
 audio or no storage without taking the game down (Postel's), and no `AudioContext` is ever created
 while muted.
 
-### A white, Duolingo-style skin
+### The skin: Apple, not Duolingo
 
-The chrome is light-only: white surfaces, rounded type, thick-bottomed buttons that physically press
-down. That last one is not decoration — the raised edge says *pressable* before you touch it, and the
-press moves, which a flat rectangle can only imitate on hover.
+This started as a Duolingo pastiche — saturated green board, 2px borders everywhere, buttons with a
+4px bottom edge that physically pressed down, ALL-CAPS letter-spaced micro-labels, light mode only.
+It has been rebuilt in the current Apple design language, and the rewrite is mostly about *removing*
+devices rather than adding them.
 
-The palette copies the look but not the defects. Duolingo's own secondary grey is `#afafaf`, which is
-**2.19:1** on white, and white text on its signature `#58cc02` green is **2.09:1** — both well under
-the 4.5:1 floor for body text. So the greys and the button green here are darkened until they pass,
-while the bright green survives where it is a fill rather than a background for text (progress bars,
-soft panels). Measured, not assumed:
-
-| | ratio |
+| Dead idiom | What replaced it |
 | --- | --- |
-| body / strong text on white | 8.7:1 · 11.0:1 |
-| muted text (`#767676`, not `#afafaf`) | 4.5:1 |
-| white label on the green button (`#358000`) | 5.0:1 |
-| blue type (`#12719e`, not `#1cb0f6`) | 5.4:1 |
-| move hints on light / dark squares | 6.6:1 · 3.5:1 |
+| Buttons with a 4px bottom border that drop 2px on press | Three flat tiers — filled, tinted, plain — with `scale(.97)` and a drop to 72% opacity on pointer-**down** at 110ms, springing back over 380ms. Feedback still lands before the release; it just stops pretending to be a physical key. |
+| A saturated green board | Warm stone: `#ECDAC0` / `#837767` in light, `#CCBDA9` / `#7F7466` in dark. Green survives only as a move grade. |
+| 2px borders on every card, chip and tile | 0.5px hairlines *inside* opaque cards, and figure/ground: white cards on `#F2F2F7`. |
+| One `--radius` on everything from a chip to a 500px card | Seven radii sized to the object, from a 6px tag to a 22px sheet. |
+| `font-weight: 700/800` almost everywhere, plus ALL-CAPS labels | Four weights and zero uppercase. Hierarchy comes from size, weight, leading and size-specific tracking — tight and negative on the 64px accuracy numeral, near zero on body, slightly open on 11px captions. |
+| Light mode only | A full three-state theme: `:root` carries the complete light palette, the dark overrides sit behind `prefers-color-scheme` guarded as `:not([data-theme="light"])`, and `[data-theme="dark"]` repeats them so an explicit toggle wins in both directions. |
 
-Dark mode was removed rather than restyled. It had already shipped one contrast failure, a second
-theme doubles every future check, and "a white UI" is a decision worth making cleanly.
+Two surfaces are translucent and no more: the sticky header and the promotion sheet. A page that is
+mostly one opaque board gives `backdrop-filter` very little to sample, so spending it anywhere else
+buys blur without meaning. `prefers-reduced-transparency` makes both solid.
 
-Contrast is measured rather than eyeballed. Every piece/square pair clears 4.5:1 — white pieces
-carry their contrast in a `-webkit-text-stroke` edge (10.8:1) since white-on-cream fill is only
-1.37:1 — and the legal-move dots were opened from 32% to 60% opacity after measuring 1.77:1 against
-the dark squares. The one deliberate exception is the board pattern itself at 2.29:1: that is what a
-chess board has always looked like, and pushing the two square colours apart to satisfy a number
-would make the pieces harder to read, not easier. The meta rule wins over the checklist.
+The board palette is derived from one hard fact about the Cburnett sprites: the black pawn is a solid
+`#000000` fill with a `#000000` stroke and has no white channel anywhere. Black pieces must therefore
+be legible by *fill*, which puts a luminance floor under the dark square — it is why the dark theme
+dims the board rather than darkening it. Measured, not eyeballed:
+
+| | light | dark |
+| --- | --- | --- |
+| black piece on light / dark square | 15.4:1 · 4.8:1 | 11.4:1 · 4.6:1 |
+| white piece on dark square | 4.4:1 | 4.6:1 |
+| move hints on light / dark square | 5.2:1 · 3.7:1 | 4.6:1 · 3.8:1 |
+| body label on card / on ground | 17.0:1 · 15.3:1 | 17.0:1 · 19.8:1 |
+| secondary label on card | 5.3:1 | 8.0:1 |
+| blue as type | 5.6:1 | 7.1:1 |
+| white label on the filled button | 5.0:1 | 5.0:1 |
+| grade text on its tint (worst of four) | 4.6:1 | 4.6:1 |
+
+Two deliberate exceptions. A white piece on a light square is **1.4:1** by fill — it is carried by
+the sprite's own 1.5px black outline at 15.4:1, which is the mechanism every chess set on the web
+relies on. And the checker pattern itself is 3.2:1 in light and 2.5:1 in dark: pushing the two square
+colours apart to satisfy a number would make the pieces harder to read, not easier. The meta rule
+wins over the checklist.
 
 Correctness is not a UX law, but an interface that allows an illegal move has no UX at all. The move
 generator is verified with `perft` to depth 5 — 4,865,609 positions, matching the published count
@@ -185,15 +197,19 @@ back-rank mate, and stalemate.
 
 ---
 
-## On the chess.com sound files
+## On the sound files
 
-They are not used here, and deliberately so: they are chess.com's copyrighted audio served from their
-CDN, so embedding them would redistribute someone's assets from a public repo, and hotlinking them
-would spend their bandwidth and add a network dependency to a file whose whole point is that it has
-none. What the sounds here borrow is the *taxonomy* — separate events for your move, your opponent's
-move, capture, castle, check, promotion, game start, game end, and an illegal attempt — which is the
-genuinely good idea in that list. Everything is synthesised with WebAudio. If real recordings are
-wanted, Lichess publishes openly-licensed sound sets that can be used with attribution.
+The page now plays recorded samples from `examples/chess/audio/`, supplied by the repository owner.
+The good idea they encode is the *taxonomy* — separate events for your move, your opponent's move,
+capture, castle, a move that gives check, promotion, game start, game end, and an illegal attempt.
+
+The synthesised WebAudio set is still in the file behind them, note for note, and it is not dead
+code: a sample that has not finished loading, or cannot load at all — a missing folder, a blocked
+media element, the page opened straight off disk — falls back to the synth for that event rather than
+playing nothing or arriving half a second late. Postel's law applied to assets rather than to input.
+
+If you are reusing this example, check that you have the right to redistribute whatever is in that
+folder. Lichess publishes openly-licensed sound sets that can be used with attribution.
 
 ## Credits
 
