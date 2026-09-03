@@ -173,6 +173,22 @@
     background: var(--surface); border: 1px solid var(--line); color: var(--text);
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   }
+  /* Fitts's: 40px round target, not a 16px speaker glyph. */
+  .icon-btn {
+    width: 40px; height: 40px; flex: none;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 999px; background: var(--surface); border: 1px solid var(--line);
+    color: var(--muted); cursor: pointer;
+    transition: color .12s ease, border-color .12s ease;
+  }
+  .icon-btn:hover { color: var(--text); border-color: var(--accent); }
+  .icon-btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .icon-btn[aria-pressed="true"] { color: var(--accent); }
+  .icon-btn .slash { display: none; }
+  .icon-btn[aria-pressed="false"] .waves { display: none; }
+  .icon-btn[aria-pressed="false"] .slash { display: inline; }
+  .header-right { display: flex; align-items: center; gap: 8px; }
+
   .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
@@ -181,9 +197,21 @@
 <main>
   <header>
     <h1>Chess</h1>
-    <div class="segmented" role="group" aria-label="Opponent">
-      <button id="mode-cpu" aria-pressed="true">Computer</button>
-      <button id="mode-two" aria-pressed="false">2 players</button>
+    <div class="header-right">
+      <div class="segmented" role="group" aria-label="Opponent">
+        <button id="mode-cpu" aria-pressed="true">Computer</button>
+        <button id="mode-two" aria-pressed="false">2 players</button>
+      </div>
+      <!-- Hick's: one switch, not a volume mixer. Jakob's: a speaker icon in
+           the header is where every board app already puts this. -->
+      <button class="icon-btn" id="sound" aria-pressed="true" aria-label="Sound on">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="4 9 8 9 13 5 13 19 8 15 4 15"></polygon>
+          <g class="waves"><path d="M16.5 9a4.5 4.5 0 0 1 0 6"></path><path d="M19.5 6.5a8 8 0 0 1 0 11"></path></g>
+          <g class="slash"><path d="M17 9.5l5 5"></path><path d="M22 9.5l-5 5"></path></g>
+        </svg>
+      </button>
     </div>
   </header>
 
@@ -484,6 +512,88 @@
     return pick[Math.floor(Math.random() * pick.length)];
   }
 
+  // --- sound --------------------------------------------------------------
+  // Every sound answers a question the screen answers slower: did that land,
+  // was something taken, am I in trouble. Nothing here is decorative, and
+  // nothing plays that the board doesn't already show.
+  const Sound = (() => {
+    let ctx = null, master = null;
+    // Postel's: a blocked or missing localStorage must not break the game.
+    const store = {
+      get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+      set(k, v) { try { localStorage.setItem(k, v); } catch { /* ignore */ } }
+    };
+    let on = store.get("chess-sound") !== "off";
+
+    // Built lazily inside a real click, because browsers refuse audio before
+    // a gesture — and never built at all while muted.
+    function ac() {
+      if (!on) return null;
+      if (!ctx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return null;
+        try { ctx = new AC(); } catch { return null; }
+        master = ctx.createGain();
+        master.gain.value = 0.3;
+        master.connect(ctx.destination);
+      }
+      if (ctx.state === "suspended") ctx.resume();
+      return ctx;
+    }
+
+    function tone(freq, { dur = 0.09, gain = 0.35, type = "triangle", delay = 0 } = {}) {
+      const c = ac(); if (!c) return;
+      const t0 = c.currentTime + delay;
+      const osc = c.createOscillator(), g = c.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, t0);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(gain, t0 + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      osc.connect(g); g.connect(master);
+      osc.start(t0); osc.stop(t0 + dur + 0.03);
+    }
+
+    // A piece landing on a board is a short broadband knock, not a beep.
+    function knock({ dur = 0.06, gain = 0.5, cutoff = 1500, delay = 0 } = {}) {
+      const c = ac(); if (!c) return;
+      const t0 = c.currentTime + delay;
+      const n = Math.max(1, Math.floor(c.sampleRate * dur));
+      const buf = c.createBuffer(1, n, c.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3);
+      const src = c.createBufferSource(); src.buffer = buf;
+      const filt = c.createBiquadFilter(); filt.type = "lowpass"; filt.frequency.value = cutoff;
+      const g = c.createGain(); g.gain.value = gain;
+      src.connect(filt); filt.connect(g); g.connect(master);
+      src.start(t0);
+    }
+
+    return {
+      get on() { return on; },
+      toggle() {
+        on = !on;
+        store.set("chess-sound", on ? "on" : "off");
+        if (on) knock({ dur: 0.04, gain: 0.3, cutoff: 2000 });   // confirm the switch with the switch
+        return on;
+      },
+      select() { knock({ dur: 0.025, gain: 0.16, cutoff: 2400 }); },
+      move()   { knock({ dur: 0.06,  gain: 0.5,  cutoff: 1500 }); },
+      // Von Restorff, in audio: a capture is heavier and darker than a quiet
+      // move, so losing a piece never sounds like nothing happened.
+      capture() { knock({ dur: 0.1, gain: 0.75, cutoff: 700 }); tone(150, { dur: 0.09, gain: 0.28, type: "sine" }); },
+      castle()  { knock({ dur: 0.05, gain: 0.45, cutoff: 1500 }); knock({ dur: 0.05, gain: 0.45, cutoff: 1500, delay: 0.1 }); },
+      promote() { tone(660, { dur: 0.08 }); tone(880, { dur: 0.08, delay: 0.08 }); tone(1320, { dur: 0.12, delay: 0.16 }); },
+      // Check is the one thing you must not miss, so it is the one sound that
+      // is unmistakably not a move.
+      check()   { tone(880, { dur: 0.07, gain: 0.3 }); tone(1174, { dur: 0.1, gain: 0.3, delay: 0.09 }); },
+      win()     { [523, 659, 784].forEach((f, i) => tone(f, { dur: 0.16, gain: 0.3, delay: i * 0.11 })); },
+      lose()    { [392, 330, 262].forEach((f, i) => tone(f, { dur: 0.2, gain: 0.28, delay: i * 0.13 })); },
+      draw()    { tone(440, { dur: 0.18, gain: 0.26 }); tone(392, { dur: 0.22, gain: 0.26, delay: 0.14 }); },
+      back()    { knock({ dur: 0.04, gain: 0.3, cutoff: 900 }); tone(300, { dur: 0.07, gain: 0.2, type: "sine", delay: 0.02 }); }
+    };
+  })();
+
   // --- ui -----------------------------------------------------------------
   const el = id => document.getElementById(id);
   const boardEl = el("board"), statusEl = el("status"), subEl = el("status-sub");
@@ -527,6 +637,7 @@
     if (p && colorOf(p) === ui.s.turn) {
       ui.sel = ui.sel === i ? null : i;
       ui.targets = ui.sel === null ? [] : legal(ui.s).filter(m => m.from === i);
+      if (ui.sel !== null) Sound.select();   // picking up speaks; putting down doesn't
     } else {
       ui.sel = null; ui.targets = [];   // tapping empty space deselects; no error
     }
@@ -559,11 +670,28 @@
     ui.last = { from: m.from, to: m.to };
     ui.s = make(ui.s, m);
     ui.sel = null; ui.targets = [];
-    finishTurn(text);
+    finishTurn(text, m);
   }
 
-  function finishTurn(text) {
+  // The sound names what happened, in the order it happened: the move lands,
+  // then — only if there is news — check or the end of the game.
+  function playMove(m, text) {
+    if (m.castle) Sound.castle();
+    else if (m.promo) Sound.promote();
+    else if (m.captured) Sound.capture();
+    else Sound.move();
+    if (ui.over) {
+      const won = ui.over.type === "mate" && (!ui.vsCpu || ui.over.winner === "w");
+      const lost = ui.over.type === "mate" && ui.vsCpu && ui.over.winner === "b";
+      setTimeout(() => (lost ? Sound.lose() : won ? Sound.win() : Sound.draw()), 190);
+    } else if (text.endsWith("+")) {
+      setTimeout(() => Sound.check(), 95);
+    }
+  }
+
+  function finishTurn(text, m) {
     checkOver();
+    playMove(m, text);
     render();
     liveEl.textContent = text + (ui.over ? ". " + statusEl.textContent : "");
     if (!ui.over && ui.vsCpu && ui.s.turn === "b") {
@@ -581,6 +709,7 @@
         ui.last = { from: m.from, to: m.to };
         ui.s = make(ui.s, m);
         checkOver();
+        playMove(m, t);
         render();
         liveEl.textContent = t + (ui.over ? ". " + statusEl.textContent : "");
       }, 260);
@@ -681,6 +810,7 @@
   // the computer it rewinds the pair, which is what a player means by it.
   undoBtn.addEventListener("click", () => {
     if (!ui.history.length || ui.busy) return;
+    Sound.back();
     let prev = ui.history.pop(); ui.sans.pop();
     if (ui.vsCpu && ui.s.turn === "w" && ui.history.length) { prev = ui.history.pop(); ui.sans.pop(); }
     ui.s = prev.s; ui.last = prev.last;
@@ -713,6 +843,14 @@
   };
   el("diff-casual").addEventListener("click", () => setDiff(false));
   el("diff-strong").addEventListener("click", () => setDiff(true));
+
+  const soundBtn = el("sound");
+  const syncSound = on => {
+    soundBtn.setAttribute("aria-pressed", String(on));
+    soundBtn.setAttribute("aria-label", on ? "Sound on" : "Sound off");
+  };
+  syncSound(Sound.on);
+  soundBtn.addEventListener("click", () => syncSound(Sound.toggle()));
 
   boardEl.addEventListener("keydown", e => {
     const i = Number(document.activeElement?.dataset.i);
