@@ -871,6 +871,11 @@
   // Every sound answers a question the screen answers slower: did that land,
   // was something taken, am I in trouble. Nothing here is decorative, and
   // nothing plays that the board doesn't already show.
+  //
+  // The sounds are recorded samples in ./audio. A synthesised set stands
+  // behind them, note for note, so the game still speaks if the files are
+  // missing, blocked, or the page is opened straight off disk — Postel's
+  // law applied to assets, not just input.
   const Sound = (() => {
     let ctx = null, master = null;
     // Postel's: a blocked or missing localStorage must not break the game.
@@ -909,21 +914,6 @@
       osc.start(t0); osc.stop(t0 + dur + 0.03);
     }
 
-    // A piece landing on a board is a short broadband knock, not a beep.
-    function knock({ dur = 0.06, gain = 0.5, cutoff = 1500, delay = 0 } = {}) {
-      const c = ac(); if (!c) return;
-      const t0 = c.currentTime + delay;
-      const n = Math.max(1, Math.floor(c.sampleRate * dur));
-      const buf = c.createBuffer(1, n, c.sampleRate);
-      const d = buf.getChannelData(0);
-      for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3);
-      const src = c.createBufferSource(); src.buffer = buf;
-      const filt = c.createBiquadFilter(); filt.type = "lowpass"; filt.frequency.value = cutoff;
-      const g = c.createGain(); g.gain.value = gain;
-      src.connect(filt); filt.connect(g); g.connect(master);
-      src.start(t0);
-    }
-
     // A piece landing on a board is a knock with a body: a short broadband
     // transient plus a low resonant thump. One or the other alone reads as
     // static or as a beep.
@@ -949,38 +939,158 @@
       body.start(t0); body.stop(t0 + dur * 2.4);
     }
 
+    // --- samples ----------------------------------------------------------
+    // One file per event, levelled against each other so a capture reads as
+    // heavier than a move without anything having to shout.
+    const FILES = {
+      select:   ["premove",        .45],
+      self:     ["move-self",      .95],
+      opponent: ["move-opponent",  .85],
+      capture:  ["capture",        1  ],
+      castle:   ["castle",         .9 ],
+      check:    ["move-check",     1  ],
+      promote:  ["promote",        .9 ],
+      start:    ["game-start",     .8 ],
+      end:      ["game-end",       .85],
+      illegal:  ["illegal",        .6 ],
+      back:     ["notify",         .5 ]
+    };
+    const VOL = .55;                     // headroom, matching the synth's master
+    const POOL = 3;                      // enough voices to overlap without piling up
+    const bank = {};
+    let ready = false;
+
+    // Load once, eagerly: a move sound that arrives late has already missed
+    // the moment it was explaining.
+    (function load() {
+      if (typeof Audio !== "function") return;
+      for (const key in FILES) {
+        const [name, level] = FILES[key];
+        const voices = [];
+        for (let i = 0; i < POOL; i++) {
+          let a; try { a = new Audio("audio/" + name + ".mp3"); } catch { return; }
+          a.preload = "auto";
+          a.volume = Math.min(1, level * VOL);
+          a.addEventListener("error", () => { bank[key] = null; }, { once: true });
+          voices.push(a);
+        }
+        bank[key] = { voices, at: 0, level };
+      }
+      ready = true;
+    })();
+
+    // Autoplay rules unlock media on a gesture, not before. Prime the bank on
+    // the first touch so the very first move is not the silent one.
+    function prime() {
+      for (const key in bank) {
+        const b = bank[key]; if (!b) continue;
+        for (const a of b.voices) {
+          const v = a.volume; a.volume = 0;
+          const p = a.play();
+          const settle = () => { a.pause(); a.currentTime = 0; a.volume = v; };
+          if (p && p.then) p.then(settle, () => { a.volume = v; }); else settle();
+        }
+      }
+    }
+    let primed = false;
+    const onGesture = () => {
+      if (primed) return; primed = true;
+      if (on) prime();
+      window.removeEventListener("pointerdown", onGesture, true);
+      window.removeEventListener("keydown", onGesture, true);
+    };
+    window.addEventListener("pointerdown", onGesture, true);
+    window.addEventListener("keydown", onGesture, true);
+
+    // Returns false when the sample cannot speak *right now*, so the caller
+    // falls back to the synthesised version. A file that has not finished
+    // loading counts as "cannot": a move sound that arrives half a second
+    // late has already missed the moment it was there to explain.
+    function voice(b) {
+      for (let i = 0; i < b.voices.length; i++) {
+        const a = b.voices[(b.at + i) % b.voices.length];
+        if (a.readyState >= 2) { b.at = (b.at + i + 1) % b.voices.length; return a; }
+      }
+      return null;
+    }
+    function sample(key, { rate = 1, delay = 0 } = {}) {
+      if (!on || !ready) return false;
+      const b = bank[key]; if (!b) return false;
+      const a = voice(b); if (!a) return false;
+      const fire = () => {
+        try {
+          a.currentTime = 0;
+          if (rate !== 1) { a.preservesPitch = a.mozPreservesPitch = a.webkitPreservesPitch = false; }
+          a.playbackRate = rate;
+          const p = a.play(); if (p && p.catch) p.catch(() => { /* blocked; the board still shows it */ });
+        } catch { /* ignore */ }
+      };
+      delay ? setTimeout(fire, delay * 1000) : fire();
+      return true;
+    }
+
     return {
       get on() { return on; },
       toggle() {
         on = !on;
         store.set("chess-sound", on ? "on" : "off");
-        if (on) wood({ freq: 260, gain: .35, bright: 2000, dur: .03 });
+        // Turning sound on confirms itself; turning it off would be a joke.
+        if (on && !sample("select")) wood({ freq: 260, gain: .35, bright: 2000, dur: .03 });
         return on;
       },
-      select()  { wood({ freq: 320, gain: .16, bright: 2600, dur: .02 }); },
+      select()  { sample("select") || wood({ freq: 320, gain: .16, bright: 2600, dur: .02 }); },
       // Your move and your opponent's move are different events, so they are
       // different sounds — you can tell who moved without looking up.
       move(mine = true) {
+        if (sample(mine ? "self" : "opponent")) return;
         mine ? wood({ freq: 210, gain: .5, bright: 1700 })
              : wood({ freq: 165, gain: .45, bright: 1150, dur: .065 });
       },
       capture() {
+        if (sample("capture")) return;
         wood({ freq: 130, gain: .75, bright: 800, dur: .085 });
         tone(90, { dur: .1, gain: .3, type: "sine" });
       },
-      castle()  { wood({ freq: 200, gain: .45 }); wood({ freq: 190, gain: .42, delay: .105 }); },
+      castle()  {
+        if (sample("castle")) return;
+        wood({ freq: 200, gain: .45 }); wood({ freq: 190, gain: .42, delay: .105 });
+      },
       // Check must be unmistakably not a move — it is the one thing you cannot
       // afford to miss, so it is the one sound with a pitch.
-      check()   { tone(880, { dur: .07, gain: .3 }); tone(1174, { dur: .1, gain: .3, delay: .09 }); },
-      promote() { [660, 880, 1320].forEach((f, i) => tone(f, { dur: .09, gain: .28, delay: i * .08 })); },
-      start()   { tone(392, { dur: .1, gain: .24 }); tone(523, { dur: .14, gain: .26, delay: .1 }); },
-      win()     { [523, 659, 784].forEach((f, i) => tone(f, { dur: .16, gain: .3, delay: i * .11 })); },
-      lose()    { [392, 330, 262].forEach((f, i) => tone(f, { dur: .2, gain: .28, delay: i * .13 })); },
-      draw()    { tone(440, { dur: .18, gain: .26 }); tone(392, { dur: .22, gain: .26, delay: .14 }); },
+      check(delay = 0)   {
+        if (sample("check", { delay })) return;
+        tone(880, { dur: .07, gain: .3, delay }); tone(1174, { dur: .1, gain: .3, delay: delay + .09 });
+      },
+      promote() {
+        if (sample("promote")) return;
+        [660, 880, 1320].forEach((f, i) => tone(f, { dur: .09, gain: .28, delay: i * .08 }));
+      },
+      start()   {
+        if (sample("start")) return;
+        tone(392, { dur: .1, gain: .24 }); tone(523, { dur: .14, gain: .26, delay: .1 });
+      },
+      // One recording ends the game, so the three endings are told apart the
+      // way a voice tells them apart: same words, pitched up or down.
+      win()     {
+        if (sample("end", { rate: 1.06 })) return;
+        [523, 659, 784].forEach((f, i) => tone(f, { dur: .16, gain: .3, delay: i * .11 }));
+      },
+      lose()    {
+        if (sample("end", { rate: .82 })) return;
+        [392, 330, 262].forEach((f, i) => tone(f, { dur: .2, gain: .28, delay: i * .13 }));
+      },
+      draw()    {
+        if (sample("end", { rate: .93 })) return;
+        tone(440, { dur: .18, gain: .26 }); tone(392, { dur: .22, gain: .26, delay: .14 });
+      },
       // An impossible move is a dull thud, not an error chime. It says "that
       // did not happen" without scolding.
-      illegal() { wood({ freq: 98, gain: .4, bright: 380, dur: .07 }); },
-      back()    { wood({ freq: 150, gain: .3, bright: 700, dur: .05 }); tone(260, { dur: .07, gain: .18, type: "sine", delay: .02 }); }
+      illegal() { sample("illegal") || wood({ freq: 98, gain: .4, bright: 380, dur: .07 }); },
+      back()    {
+        if (sample("back")) return;
+        wood({ freq: 150, gain: .3, bright: 700, dur: .05 });
+        tone(260, { dur: .07, gain: .18, type: "sine", delay: .02 });
+      }
     };
   })();
 
@@ -1072,16 +1182,21 @@
   // then — only if there is news — check or the end of the game.
   function playMove(m, text) {
     const mine = !ui.vsCpu || colorOf(m.piece) === "w";
+    const checking = !ui.over && text.endsWith("+");
+    // A plain move that gives check has one sound, not two stacked on top of
+    // each other. Anything louder — a capture, a castle, a promotion — keeps
+    // its own sound and the check follows just late enough to be heard.
     if (m.castle) Sound.castle();
     else if (m.promo) Sound.promote();
     else if (m.captured) Sound.capture();
+    else if (checking) return Sound.check();
     else Sound.move(mine);
     if (ui.over) {
       const won = ui.over.type === "mate" && (!ui.vsCpu || ui.over.winner === "w");
       const lost = ui.over.type === "mate" && ui.vsCpu && ui.over.winner === "b";
       setTimeout(() => (lost ? Sound.lose() : won ? Sound.win() : Sound.draw()), 190);
-    } else if (text.endsWith("+")) {
-      setTimeout(() => Sound.check(), 95);
+    } else if (checking) {
+      Sound.check(.16);
     }
   }
 
