@@ -1,0 +1,734 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chess — built with the UX Laws skill</title>
+<meta name="description" content="Playable chess built by an agent with the ux-laws skill loaded.">
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --line: #e3e6ea;
+    --text: #14171a;
+    --muted: #666e78;
+    --accent: #2f6df6;
+    --accent-soft: #e7efff;
+    --light: #eceff3;
+    --dark: #b3bcc9;
+    --last: #f6e6a8;
+    --check: #ffc9cf;
+    --danger: #d1495b;
+    --win: #16a34a;
+    --radius: 14px;
+    --shadow: 0 1px 2px rgba(16,20,26,.06), 0 8px 24px rgba(16,20,26,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115;
+      --surface: #171a20;
+      --line: #272b33;
+      --text: #eef1f5;
+      --muted: #98a1ad;
+      --accent: #5b8cff;
+      --accent-soft: #1b2740;
+      --light: #4a515c;
+      --dark: #2b313a;
+      --last: #5c5320;
+      --check: #5c2027;
+      --danger: #ff7d8f;
+      --win: #4ade80;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    display: flex;
+    justify-content: center;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.5 ui-sans-serif, -apple-system, "Segoe UI", Roboto, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  main { width: 100%; max-width: 460px; padding: 16px 16px 32px; display: flex; flex-direction: column; gap: 16px; }
+
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  h1 { font-size: 15px; font-weight: 600; margin: 0; color: var(--muted); }
+
+  .segmented { display: flex; gap: 4px; padding: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; }
+  .segmented button {
+    appearance: none; border: 0; background: transparent; color: var(--muted);
+    font: inherit; font-size: 13px; font-weight: 500;
+    padding: 8px 14px; border-radius: 999px; cursor: pointer;   /* Fitts's: real hit area */
+  }
+  .segmented button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+  .segmented button:hover:not([aria-pressed="true"]) { color: var(--text); }
+
+  /* Uniform connectedness: status, board and controls share one surface. */
+  .card {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: calc(var(--radius) + 6px); box-shadow: var(--shadow);
+    padding: 16px; display: flex; flex-direction: column; gap: 14px;
+  }
+
+  /* Serial position: whose move it is comes first and largest. */
+  .status { min-height: 50px; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
+  .status-line { font-size: 19px; font-weight: 650; letter-spacing: -.02em; display: flex; align-items: center; gap: 8px; }
+  .status-sub { font-size: 13px; color: var(--muted); }
+  .status-line.check { color: var(--danger); }
+  .status-line.over { color: var(--win); }
+  .turn-dot { width: 11px; height: 11px; border-radius: 50%; border: 1px solid var(--muted); flex: none; }
+  .turn-dot.w { background: #fff; }
+  .turn-dot.b { background: #1a1d22; }
+
+  /* Miller's: coordinates are printed, so nobody has to count files in their head. */
+  .board-wrap { display: grid; grid-template-columns: 14px 1fr; grid-template-rows: 1fr 14px; gap: 4px; }
+  .ranks, .files { display: grid; font-size: 10px; color: var(--muted); }
+  .ranks { grid-template-rows: repeat(8, 1fr); align-items: center; justify-items: center; }
+  .files { grid-template-columns: repeat(8, 1fr); justify-items: center; grid-column: 2; }
+
+  .board {
+    display: grid; grid-template-columns: repeat(8, 1fr);
+    border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line);
+  }
+  /* Fitts's: the board takes the full width available, so squares stay
+     comfortably tappable (~48px on a phone) instead of decorative. */
+  .sq {
+    aspect-ratio: 1; position: relative; display: flex; align-items: center; justify-content: center;
+    border: 0; padding: 0; cursor: pointer;
+    font-size: clamp(26px, 8.2vw, 36px); line-height: 1;
+    transition: background .1s ease;
+  }
+  .sq.l { background: var(--light); }
+  .sq.d { background: var(--dark); }
+  .sq.last { background: var(--last); }
+  .sq.sel { background: var(--accent); }
+  .sq.check { background: var(--check); }
+  .sq:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; z-index: 2; }
+  .sq:disabled { cursor: default; }
+  .piece { pointer-events: none; }
+  .piece.w { color: #fff; text-shadow: 0 0 1px #333, 0 0 2px #333, 0 1px 1px rgba(0,0,0,.5); }
+  .piece.b { color: #1a1d22; text-shadow: 0 0 1px rgba(255,255,255,.4); }
+
+  /* Postel's, the prevention half: legal destinations are shown, illegal ones
+     are simply not offered — so an illegal move is unreachable, not rejected. */
+  .dot { position: absolute; width: 26%; height: 26%; border-radius: 50%; background: rgba(47,109,246,.55); pointer-events: none; }
+  .ring { position: absolute; inset: 6%; border-radius: 50%; border: 3px solid rgba(47,109,246,.55); pointer-events: none; }
+
+  .controls { display: flex; gap: 8px; }
+  button.action {
+    flex: 1; appearance: none; font: inherit; font-size: 15px; font-weight: 550;
+    padding: 12px 14px; border-radius: var(--radius); cursor: pointer;
+    background: var(--surface); color: var(--text); border: 1px solid var(--line);
+    transition: border-color .12s ease, color .12s ease;
+  }
+  button.action:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  button.action:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  button.action:disabled { opacity: .45; cursor: default; }
+  /* Von Restorff: the one filled button appears only when the game is over. */
+  button.action.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.action.primary:hover { filter: brightness(1.06); color: #fff; }
+
+  /* Occam's: promotion is four choices that exist for a fraction of a second
+     per game — so they appear only at that moment, never before. */
+  .promo { display: none; flex-direction: column; gap: 8px; padding: 12px; background: var(--accent-soft); border-radius: var(--radius); }
+  .promo.show { display: flex; }
+  .promo-label { font-size: 13px; font-weight: 600; }
+  .promo-row { display: flex; gap: 8px; }
+  .promo-row button {
+    flex: 1; font: inherit; font-size: 28px; line-height: 1; padding: 10px 0;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px; cursor: pointer;
+  }
+  /* Hick's + sensible default: queen is the answer >95% of the time, so it
+     leads and is visually heavier. The other three stay available, not equal. */
+  .promo-row button.first { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft) inset; }
+  .promo-row button:hover { border-color: var(--accent); }
+
+  .meta { display: flex; gap: 8px; }
+  .meta div { flex: 1; padding: 9px 8px; text-align: center; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+  .meta .value { font-size: 15px; font-weight: 650; letter-spacing: -.01em; min-height: 23px; }
+  .meta .label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+
+  /* Miller's again: the move list is the interface remembering the game so
+     the player doesn't have to. Chunked in numbered pairs, newest visible. */
+  .moves { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); max-height: 132px; overflow-y: auto; }
+  .moves-empty { padding: 12px; font-size: 13px; color: var(--muted); text-align: center; }
+  .moves table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .moves td { padding: 5px 8px; }
+  .moves td.n { color: var(--muted); width: 34px; }
+  .moves td.m { font-weight: 500; }
+  .moves tr:nth-child(even) { background: rgba(127,127,127,.05); }
+  .moves .cur { color: var(--accent); font-weight: 650; }
+
+  .hint { font-size: 12px; color: var(--muted); text-align: center; margin: 0; }
+  .credit { text-align: center; display: flex; flex-direction: column; gap: 8px; }
+  .credit p { margin: 0; font-size: 13px; color: var(--muted); }
+  .credit a { color: var(--accent); text-decoration: none; }
+  .credit a:hover { text-decoration: underline; }
+  .credit code {
+    display: inline-block; font-size: 12px; padding: 7px 11px; border-radius: 8px;
+    background: var(--surface); border: 1px solid var(--line); color: var(--text);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Chess</h1>
+    <div class="segmented" role="group" aria-label="Opponent">
+      <button id="mode-cpu" aria-pressed="true">Computer</button>
+      <button id="mode-two" aria-pressed="false">2 players</button>
+    </div>
+  </header>
+
+  <div class="card">
+    <div class="status">
+      <div class="status-line" id="status"><span class="turn-dot w"></span>Your move</div>
+      <div class="status-sub" id="status-sub">You're White. Tap a piece to see where it can go.</div>
+    </div>
+
+    <div class="board-wrap">
+      <div class="ranks" id="ranks"></div>
+      <div class="board" id="board" role="grid" aria-label="Chess board"></div>
+      <div class="files" id="files"></div>
+    </div>
+
+    <div class="promo" id="promo">
+      <div class="promo-label" id="promo-label">Promote to</div>
+      <div class="promo-row" id="promo-row"></div>
+    </div>
+
+    <div class="controls">
+      <button class="action" id="undo" disabled>Take back</button>
+      <button class="action" id="restart">New game</button>
+    </div>
+
+    <div class="segmented" id="difficulty" role="group" aria-label="Difficulty" style="align-self:center">
+      <button id="diff-casual" aria-pressed="true">Casual</button>
+      <button id="diff-strong" aria-pressed="false">Stronger</button>
+    </div>
+  </div>
+
+  <div class="meta">
+    <div><div class="value" id="mat-w">—</div><div class="label" id="lab-w">White</div></div>
+    <div><div class="value" id="mat-b">—</div><div class="label" id="lab-b">Black</div></div>
+  </div>
+
+  <div class="moves" id="moves"><div class="moves-empty">Moves appear here as you play.</div></div>
+
+  <p class="hint">Tap a piece, then a highlighted square · Arrow keys and Enter also work</p>
+  <div class="sr-only" role="status" aria-live="polite" id="live"></div>
+
+  <footer class="credit">
+    <p>Built by an agent with the <a href="https://github.com/uwussimo/ux-laws">ux-laws</a> skill loaded.</p>
+    <p><code>npx skills add uwussimo/ux-laws</code></p>
+  </footer>
+</main>
+
+<script>
+(() => {
+  "use strict";
+  const FILES = "abcdefgh";
+  const GLYPH = { k:"♚", q:"♛", r:"♜", b:"♝", n:"♞", p:"♟" };
+  const VAL = { p:100, n:320, b:330, r:500, q:900, k:0 };
+  const DIAG = [[-1,-1],[-1,1],[1,-1],[1,1]];
+  const ORTH = [[-1,0],[1,0],[0,-1],[0,1]];
+  const KNIGHT = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
+  const idx = (r,f) => r * 8 + f;
+  const rank = i => Math.floor(i / 8);
+  const file = i => i % 8;
+  const sqName = i => FILES[file(i)] + (8 - rank(i));
+  const isW = p => p === p.toUpperCase();
+  const colorOf = p => (p ? (isW(p) ? "w" : "b") : null);
+  const other = c => (c === "w" ? "b" : "w");
+
+  function initial() {
+    const b = Array(64).fill(null);
+    const back = "rnbqkbnr";
+    for (let f = 0; f < 8; f++) {
+      b[idx(0,f)] = back[f];
+      b[idx(1,f)] = "p";
+      b[idx(6,f)] = "P";
+      b[idx(7,f)] = back[f].toUpperCase();
+    }
+    return { b, turn:"w", castle:{K:true,Q:true,k:true,q:true}, ep:null, half:0, full:1 };
+  }
+
+  function kingSq(b, c) {
+    const k = c === "w" ? "K" : "k";
+    for (let i = 0; i < 64; i++) if (b[i] === k) return i;
+    return -1;
+  }
+
+  function attacked(b, sq, by) {
+    if (sq < 0) return false;
+    const r0 = rank(sq), f0 = file(sq);
+    const pd = by === "w" ? 1 : -1;
+    for (const df of [-1,1]) {
+      const r = r0 + pd, f = f0 + df;
+      if (r>=0 && r<8 && f>=0 && f<8) {
+        const p = b[idx(r,f)];
+        if (p && colorOf(p) === by && p.toLowerCase() === "p") return true;
+      }
+    }
+    for (const [dr,df] of KNIGHT) {
+      const r = r0+dr, f = f0+df;
+      if (r<0||r>7||f<0||f>7) continue;
+      const p = b[idx(r,f)];
+      if (p && colorOf(p) === by && p.toLowerCase() === "n") return true;
+    }
+    for (const [dr,df] of DIAG.concat(ORTH)) {
+      const r = r0+dr, f = f0+df;
+      if (r<0||r>7||f<0||f>7) continue;
+      const p = b[idx(r,f)];
+      if (p && colorOf(p) === by && p.toLowerCase() === "k") return true;
+    }
+    const slide = (dirs, types) => {
+      for (const [dr,df] of dirs) {
+        let r = r0+dr, f = f0+df;
+        while (r>=0 && r<8 && f>=0 && f<8) {
+          const p = b[idx(r,f)];
+          if (p) {
+            if (colorOf(p) === by && types.includes(p.toLowerCase())) return true;
+            break;
+          }
+          r += dr; f += df;
+        }
+      }
+      return false;
+    };
+    return slide(DIAG, ["b","q"]) || slide(ORTH, ["r","q"]);
+  }
+
+  function addPawn(out, from, to, p, cap, tr) {
+    const last = isW(p) ? 0 : 7;
+    if (tr === last) for (const pr of ["q","r","b","n"]) out.push({ from, to, piece:p, captured:cap, promo:pr });
+    else out.push({ from, to, piece:p, captured:cap });
+  }
+
+  function pseudo(s) {
+    const out = [];
+    const me = s.turn, dir = me === "w" ? -1 : 1;
+    for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
+      const from = idx(r,f), p = s.b[from];
+      if (!p || colorOf(p) !== me) continue;
+      const t = p.toLowerCase();
+      const push = (tr, tf) => {
+        if (tr<0||tr>7||tf<0||tf>7) return false;
+        const to = idx(tr,tf), q = s.b[to];
+        if (q && colorOf(q) === me) return false;
+        out.push({ from, to, piece:p, captured:q || null });
+        return !q;
+      };
+      if (t === "p") {
+        const one = r + dir;
+        if (one >= 0 && one < 8 && !s.b[idx(one,f)]) {
+          addPawn(out, from, idx(one,f), p, null, one);
+          const start = me === "w" ? 6 : 1;
+          const two = r + 2*dir;
+          if (r === start && !s.b[idx(two,f)]) out.push({ from, to: idx(two,f), piece:p, captured:null, dbl:true });
+        }
+        for (const df of [-1,1]) {
+          const tr = one, tf = f + df;
+          if (tr<0||tr>7||tf<0||tf>7) continue;
+          const to = idx(tr,tf), q = s.b[to];
+          if (q && colorOf(q) !== me) addPawn(out, from, to, p, q, tr);
+          else if (!q && s.ep === to) out.push({ from, to, piece:p, captured: me === "w" ? "p" : "P", ep:true });
+        }
+      } else if (t === "n") {
+        for (const [dr,df] of KNIGHT) push(r+dr, f+df);
+      } else if (t === "k") {
+        for (const [dr,df] of DIAG.concat(ORTH)) push(r+dr, f+df);
+      } else {
+        const dirs = t === "b" ? DIAG : t === "r" ? ORTH : DIAG.concat(ORTH);
+        for (const [dr,df] of dirs) {
+          let tr = r+dr, tf = f+df;
+          while (push(tr,tf)) { tr += dr; tf += df; }
+        }
+      }
+    }
+    // Castling — generated only when every rule already holds, so the player
+    // never sees an offer that would be rejected.
+    const opp = other(me), hr = me === "w" ? 7 : 0;
+    const kSq = idx(hr,4);
+    if (s.b[kSq] === (me === "w" ? "K" : "k")) {
+      const kRight = me === "w" ? s.castle.K : s.castle.k;
+      const qRight = me === "w" ? s.castle.Q : s.castle.q;
+      const rookK = s.b[idx(hr,7)], rookQ = s.b[idx(hr,0)];
+      const wantRook = me === "w" ? "R" : "r";
+      if (kRight && rookK === wantRook && !s.b[idx(hr,5)] && !s.b[idx(hr,6)]
+          && !attacked(s.b, kSq, opp) && !attacked(s.b, idx(hr,5), opp) && !attacked(s.b, idx(hr,6), opp))
+        out.push({ from:kSq, to:idx(hr,6), piece:s.b[kSq], captured:null, castle:"k" });
+      if (qRight && rookQ === wantRook && !s.b[idx(hr,1)] && !s.b[idx(hr,2)] && !s.b[idx(hr,3)]
+          && !attacked(s.b, kSq, opp) && !attacked(s.b, idx(hr,3), opp) && !attacked(s.b, idx(hr,2), opp))
+        out.push({ from:kSq, to:idx(hr,2), piece:s.b[kSq], captured:null, castle:"q" });
+    }
+    return out;
+  }
+
+  function make(s, m) {
+    const b = s.b.slice();
+    const castle = { ...s.castle };
+    b[m.from] = null;
+    b[m.to] = m.promo ? (isW(m.piece) ? m.promo.toUpperCase() : m.promo) : m.piece;
+    if (m.ep) b[isW(m.piece) ? m.to + 8 : m.to - 8] = null;
+    if (m.castle) {
+      const hr = rank(m.to);
+      if (m.castle === "k") { b[idx(hr,5)] = b[idx(hr,7)]; b[idx(hr,7)] = null; }
+      else { b[idx(hr,3)] = b[idx(hr,0)]; b[idx(hr,0)] = null; }
+    }
+    const t = m.piece.toLowerCase();
+    if (t === "k") { if (isW(m.piece)) { castle.K = castle.Q = false; } else { castle.k = castle.q = false; } }
+    if (m.from === 63 || m.to === 63) castle.K = false;
+    if (m.from === 56 || m.to === 56) castle.Q = false;
+    if (m.from === 7  || m.to === 7 ) castle.k = false;
+    if (m.from === 0  || m.to === 0 ) castle.q = false;
+    return {
+      b, turn: other(s.turn), castle,
+      ep: m.dbl ? (m.from + m.to) / 2 : null,
+      half: (t === "p" || m.captured) ? 0 : s.half + 1,
+      full: s.turn === "b" ? s.full + 1 : s.full
+    };
+  }
+
+  function legal(s) {
+    const out = [];
+    for (const m of pseudo(s)) {
+      const n = make(s, m);
+      if (!attacked(n.b, kingSq(n.b, s.turn), n.turn)) out.push(m);
+    }
+    return out;
+  }
+
+  const inCheck = s => attacked(s.b, kingSq(s.b, s.turn), other(s.turn));
+
+  function insufficient(b) {
+    const pieces = b.filter(Boolean).map(p => p.toLowerCase());
+    if (pieces.some(p => p === "p" || p === "r" || p === "q")) return false;
+    const minors = pieces.filter(p => p === "n" || p === "b").length;
+    return minors <= 1;
+  }
+
+  function san(s, m, list) {
+    if (m.castle) return m.castle === "k" ? "O-O" : "O-O-O";
+    const t = m.piece.toLowerCase();
+    let out = "";
+    if (t === "p") {
+      if (m.captured) out += FILES[file(m.from)] + "x";
+      out += sqName(m.to);
+      if (m.promo) out += "=" + m.promo.toUpperCase();
+    } else {
+      out += t.toUpperCase();
+      const rivals = list.filter(x => x !== m && x.piece === m.piece && x.to === m.to && x.from !== m.from);
+      if (rivals.length) {
+        if (!rivals.some(x => file(x.from) === file(m.from))) out += FILES[file(m.from)];
+        else if (!rivals.some(x => rank(x.from) === rank(m.from))) out += String(8 - rank(m.from));
+        else out += sqName(m.from);
+      }
+      if (m.captured) out += "x";
+      out += sqName(m.to);
+    }
+    const n = make(s, m);
+    if (inCheck(n)) out += legal(n).length ? "+" : "#";
+    return out;
+  }
+
+  // --- engine -------------------------------------------------------------
+  const CENTER = [0,1,2,3,3,2,1,0];
+  const pst = (p, i) => {
+    const t = p.toLowerCase();
+    const c = CENTER[file(i)] + CENTER[rank(i)];
+    if (t === "n" || t === "b") return c * 4;
+    if (t === "p") { const adv = isW(p) ? 6 - rank(i) : rank(i) - 1; return c * 2 + adv * 4; }
+    return 0;
+  };
+  function evaluate(s) {
+    let sc = 0;
+    for (let i = 0; i < 64; i++) {
+      const p = s.b[i];
+      if (!p) continue;
+      const v = VAL[p.toLowerCase()] + pst(p, i);
+      sc += isW(p) ? v : -v;
+    }
+    return sc;
+  }
+  function search(s, depth, alpha, beta) {
+    const moves = legal(s);
+    if (!moves.length) return inCheck(s) ? -90000 - depth : 0;
+    if (depth === 0) return s.turn === "w" ? evaluate(s) : -evaluate(s);
+    moves.sort((a,b) => (b.captured ? VAL[b.captured.toLowerCase()] : 0) - (a.captured ? VAL[a.captured.toLowerCase()] : 0));
+    let best = -Infinity;
+    for (const m of moves) {
+      const sc = -search(make(s, m), depth - 1, -beta, -alpha);
+      if (sc > best) best = sc;
+      if (best > alpha) alpha = best;
+      if (alpha >= beta) break;
+    }
+    return best;
+  }
+  function bestMove(s, depth) {
+    const moves = legal(s);
+    if (!moves.length) return null;
+    let best = -Infinity, pick = [];
+    for (const m of moves) {
+      const sc = -search(make(s, m), depth - 1, -Infinity, Infinity);
+      if (sc > best + 0.001) { best = sc; pick = [m]; }
+      else if (Math.abs(sc - best) < 0.001) pick.push(m);
+    }
+    return pick[Math.floor(Math.random() * pick.length)];
+  }
+
+  // --- ui -----------------------------------------------------------------
+  const el = id => document.getElementById(id);
+  const boardEl = el("board"), statusEl = el("status"), subEl = el("status-sub");
+  const undoBtn = el("undo"), restartBtn = el("restart"), liveEl = el("live");
+  const promoEl = el("promo"), promoRow = el("promo-row"), diffEl = el("difficulty");
+
+  const ui = { s: initial(), sel: null, targets: [], history: [], sans: [], last: null,
+               vsCpu: true, depth: 2, busy: false, over: null, pendingPromo: null };
+
+  const squares = Array.from({ length: 64 }, (_, i) => {
+    const b = document.createElement("button");
+    b.className = "sq " + ((rank(i) + file(i)) % 2 === 0 ? "l" : "d");
+    b.dataset.i = i;
+    b.setAttribute("role", "gridcell");
+    b.addEventListener("click", () => tap(i));
+    boardEl.appendChild(b);
+    return b;
+  });
+  el("ranks").innerHTML = [8,7,6,5,4,3,2,1].map(n => `<span>${n}</span>`).join("");
+  el("files").innerHTML = FILES.split("").map(f => `<span>${f}</span>`).join("");
+
+  const pieceName = p => ({ k:"king", q:"queen", r:"rook", b:"bishop", n:"knight", p:"pawn" })[p.toLowerCase()];
+
+  function myTurn() {
+    return !ui.over && !ui.busy && (!ui.vsCpu || ui.s.turn === "w");
+  }
+
+  function tap(i) {
+    if (!myTurn()) return;
+    if (ui.pendingPromo) return;
+    const p = ui.s.b[i];
+    const move = ui.targets.find(m => m.to === i);
+    if (move) {
+      // Promotion is the one move that genuinely needs a decision, so it is
+      // the one moment the picker exists.
+      const promos = ui.targets.filter(m => m.to === i && m.promo);
+      if (promos.length) { ui.pendingPromo = promos; showPromo(promos); return; }
+      commit(move);
+      return;
+    }
+    if (p && colorOf(p) === ui.s.turn) {
+      ui.sel = ui.sel === i ? null : i;
+      ui.targets = ui.sel === null ? [] : legal(ui.s).filter(m => m.from === i);
+    } else {
+      ui.sel = null; ui.targets = [];   // tapping empty space deselects; no error
+    }
+    render();
+  }
+
+  function showPromo(promos) {
+    promoRow.innerHTML = "";
+    const order = ["q","r","b","n"];
+    order.forEach((code, n) => {
+      const m = promos.find(x => x.promo === code);
+      if (!m) return;
+      const btn = document.createElement("button");
+      btn.className = n === 0 ? "first" : "";
+      btn.innerHTML = `<span class="piece ${colorOf(m.piece)}">${GLYPH[code]}</span>`;
+      btn.setAttribute("aria-label", pieceName(code));
+      btn.addEventListener("click", () => { promoEl.classList.remove("show"); ui.pendingPromo = null; commit(m); });
+      promoRow.appendChild(btn);
+    });
+    el("promo-label").textContent = "Promote to";
+    promoEl.classList.add("show");
+    promoRow.firstChild?.focus();
+  }
+
+  function commit(m) {
+    const list = legal(ui.s);
+    const text = san(ui.s, m, list);
+    ui.history.push({ s: ui.s, last: ui.last });
+    ui.sans.push(text);
+    ui.last = { from: m.from, to: m.to };
+    ui.s = make(ui.s, m);
+    ui.sel = null; ui.targets = [];
+    finishTurn(text);
+  }
+
+  function finishTurn(text) {
+    checkOver();
+    render();
+    liveEl.textContent = text + (ui.over ? ". " + statusEl.textContent : "");
+    if (!ui.over && ui.vsCpu && ui.s.turn === "b") {
+      ui.busy = true;
+      render();
+      // Doherty: the board updates instantly on your move; the reply comes
+      // after a visible "Thinking…" rather than a frozen board.
+      setTimeout(() => {
+        const m = bestMove(ui.s, ui.depth);
+        ui.busy = false;
+        if (!m) { checkOver(); render(); return; }
+        const t = san(ui.s, m, legal(ui.s));
+        ui.history.push({ s: ui.s, last: ui.last });
+        ui.sans.push(t);
+        ui.last = { from: m.from, to: m.to };
+        ui.s = make(ui.s, m);
+        checkOver();
+        render();
+        liveEl.textContent = t + (ui.over ? ". " + statusEl.textContent : "");
+      }, 260);
+    }
+  }
+
+  function checkOver() {
+    const moves = legal(ui.s);
+    if (!moves.length) {
+      ui.over = inCheck(ui.s) ? { type:"mate", winner: other(ui.s.turn) } : { type:"stalemate" };
+    } else if (insufficient(ui.s.b)) ui.over = { type:"material" };
+    else if (ui.s.half >= 100) ui.over = { type:"fifty" };
+    else ui.over = null;
+  }
+
+  function material() {
+    let w = 0, b = 0;
+    for (const p of ui.s.b) {
+      if (!p) continue;
+      const v = VAL[p.toLowerCase()];
+      if (isW(p)) w += v; else b += v;
+    }
+    return { w, b };
+  }
+
+  function render() {
+    const checkSq = inCheck(ui.s) ? kingSq(ui.s.b, ui.s.turn) : -1;
+    squares.forEach((sq, i) => {
+      const p = ui.s.b[i];
+      sq.classList.toggle("last", !!ui.last && (ui.last.from === i || ui.last.to === i));
+      sq.classList.toggle("sel", ui.sel === i);
+      sq.classList.toggle("check", i === checkSq && !ui.over);
+      const target = ui.targets.find(m => m.to === i);
+      sq.innerHTML = (p ? `<span class="piece ${colorOf(p)}">${GLYPH[p.toLowerCase()]}</span>` : "")
+        + (target ? (p || target.ep ? '<span class="ring"></span>' : '<span class="dot"></span>') : "");
+      sq.disabled = !myTurn();
+      sq.setAttribute("aria-label", `${sqName(i)}${p ? `, ${colorOf(p) === "w" ? "white" : "black"} ${pieceName(p)}` : ", empty"}${target ? ", can move here" : ""}`);
+      sq.setAttribute("aria-pressed", String(ui.sel === i));
+    });
+
+    const dot = c => `<span class="turn-dot ${c}"></span>`;
+    statusEl.classList.remove("check", "over");
+    if (ui.over) {
+      statusEl.classList.add("over");
+      if (ui.over.type === "mate") {
+        const w = ui.over.winner;
+        statusEl.textContent = ui.vsCpu ? (w === "w" ? "You win" : "Computer wins") : (w === "w" ? "White wins" : "Black wins");
+        subEl.textContent = `Checkmate on move ${ui.s.full}. ${ui.sans[ui.sans.length-1] || ""}`;
+      } else {
+        statusEl.textContent = "Draw";
+        subEl.textContent = ui.over.type === "stalemate" ? "Stalemate — no legal moves, but no check."
+          : ui.over.type === "material" ? "Neither side has enough material to mate."
+          : "Fifty moves without a capture or pawn move.";
+      }
+    } else if (ui.busy) {
+      statusEl.innerHTML = dot("b") + "Computer’s move";
+      subEl.textContent = "Thinking…";
+    } else {
+      const c = ui.s.turn;
+      const label = ui.vsCpu ? "Your move" : (c === "w" ? "White to move" : "Black to move");
+      statusEl.innerHTML = dot(c) + label;
+      if (inCheck(ui.s)) { statusEl.classList.add("check"); statusEl.innerHTML = dot(c) + label + " — check"; }
+      subEl.textContent = ui.sans.length
+        ? `Last: ${ui.sans[ui.sans.length-1]}`
+        : (ui.vsCpu ? "You're White. Tap a piece to see where it can go." : "White starts. Tap a piece to see where it can go.");
+    }
+
+    // Material shown as an advantage, not two raw totals — nobody should be
+    // adding up pawns in their head to know if they are winning.
+    const { w, b } = material();
+    const diff = (w - b) / 100;
+    el("mat-w").textContent = diff > 0 ? `+${diff}` : "—";
+    el("mat-b").textContent = diff < 0 ? `+${-diff}` : "—";
+    el("lab-w").textContent = ui.vsCpu ? "You" : "White";
+    el("lab-b").textContent = ui.vsCpu ? "Computer" : "Black";
+
+    const movesEl = el("moves");
+    if (!ui.sans.length) movesEl.innerHTML = '<div class="moves-empty">Moves appear here as you play.</div>';
+    else {
+      let rows = "";
+      for (let i = 0; i < ui.sans.length; i += 2) {
+        const cur = i + 1 >= ui.sans.length - 1;
+        rows += `<tr><td class="n">${i/2 + 1}.</td><td class="m${cur && ui.sans.length % 2 ? " cur" : ""}">${ui.sans[i]}</td>`
+             +  `<td class="m${cur && ui.sans.length % 2 === 0 ? " cur" : ""}">${ui.sans[i+1] || ""}</td></tr>`;
+      }
+      movesEl.innerHTML = `<table>${rows}</table>`;
+      movesEl.scrollTop = movesEl.scrollHeight;
+    }
+
+    undoBtn.disabled = !ui.history.length || ui.busy;
+    restartBtn.textContent = ui.over ? "Play again" : "New game";
+    restartBtn.classList.toggle("primary", !!ui.over);
+    diffEl.style.display = ui.vsCpu ? "flex" : "none";
+    if (!ui.pendingPromo) promoEl.classList.remove("show");
+  }
+
+  // Postel's, the recovery half: a take-back, not a confirm dialog. Against
+  // the computer it rewinds the pair, which is what a player means by it.
+  undoBtn.addEventListener("click", () => {
+    if (!ui.history.length || ui.busy) return;
+    let prev = ui.history.pop(); ui.sans.pop();
+    if (ui.vsCpu && ui.s.turn === "w" && ui.history.length) { prev = ui.history.pop(); ui.sans.pop(); }
+    ui.s = prev.s; ui.last = prev.last;
+    ui.sel = null; ui.targets = []; ui.over = null; ui.pendingPromo = null;
+    promoEl.classList.remove("show");
+    render();
+  });
+
+  function newGame() {
+    Object.assign(ui, { s: initial(), sel:null, targets:[], history:[], sans:[], last:null, busy:false, over:null, pendingPromo:null });
+    promoEl.classList.remove("show");
+    render();
+  }
+  restartBtn.addEventListener("click", newGame);
+
+  const setMode = cpu => {
+    if (ui.vsCpu === cpu) return;
+    ui.vsCpu = cpu;
+    el("mode-cpu").setAttribute("aria-pressed", String(cpu));
+    el("mode-two").setAttribute("aria-pressed", String(!cpu));
+    newGame();
+  };
+  el("mode-cpu").addEventListener("click", () => setMode(true));
+  el("mode-two").addEventListener("click", () => setMode(false));
+
+  const setDiff = strong => {
+    ui.depth = strong ? 3 : 2;
+    el("diff-casual").setAttribute("aria-pressed", String(!strong));
+    el("diff-strong").setAttribute("aria-pressed", String(strong));
+  };
+  el("diff-casual").addEventListener("click", () => setDiff(false));
+  el("diff-strong").addEventListener("click", () => setDiff(true));
+
+  boardEl.addEventListener("keydown", e => {
+    const i = Number(document.activeElement?.dataset.i);
+    if (Number.isNaN(i)) return;
+    const d = { ArrowRight:1, ArrowLeft:-1, ArrowDown:8, ArrowUp:-8 }[e.key];
+    if (!d) return;
+    e.preventDefault();
+    const next = i + d;
+    if (next < 0 || next > 63) return;
+    if (Math.abs(d) === 1 && rank(next) !== rank(i)) return;
+    squares[next].focus();
+  });
+
+  render();
+  window.__chess = { initial, pseudo, legal, make, san, attacked, kingSq, bestMove, inCheck };
+})();
+</script>
+</body>
+</html>

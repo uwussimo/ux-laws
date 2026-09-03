@@ -44,3 +44,36 @@ What the skill changed:
 Deliberate exception: the Zeigarnik effect has nothing to add here. A nine-square game needs no
 progress meter, and adding one would violate Prägnanz to satisfy a checklist. The skill's own meta
 rule applies — the laws are heuristics, not a scoring rubric.
+
+---
+
+## [chess](./chess/index.html)
+
+**[Play it live →](https://uwussimo.github.io/ux-laws/examples/chess/)**
+
+Chess is the opposite test from tic-tac-toe. The rules are genuinely complicated — pins, castling
+rights, en passant, promotion, stalemate — so the question stops being "did you decorate the board"
+and becomes "who carries the complexity, the player or the program?" Tesler's Law says the program,
+and almost every decision below follows from that.
+
+| Law | Decision in the build |
+| --- | --- |
+| **Tesler's** | The engine owns legality, check, mate, stalemate, notation, and material count. The player owns none of it. |
+| **Postel's** | Illegal moves are unreachable rather than rejected — only legal destinations are offered, so there is no error state to design. Take-back replaces "are you sure?". |
+| **Fitts's** | The board is the full width of the screen; squares land near 48px on a phone. |
+| **Jakob's** | Tap-piece-then-square, dots for quiet moves, rings for captures — the pattern every chess app already uses. |
+| **Hick's** | Two opponents, two difficulties, nothing else. Promotion offers four pieces with the queen leading, because it is the answer nearly every time. |
+| **Occam's** | The promotion picker exists for the fraction of a second per game when it is relevant, and difficulty only when the opponent is a computer. |
+| **Miller's** | Coordinates are printed on the board and the move list records the game, so nothing has to be held in memory. |
+| **Doherty** | The engine answers in 10–79ms; the visible pause is a deliberate ~260ms, because a reply that lands instantly reads as a glitch. |
+| **Von Restorff** | One filled button, only at the end. Check turns the status line red; the king's square turns red too, so it is never colour alone. |
+| **Serial position** | Whose move it is is first and largest; the next action is last. |
+| **Peak-End** | The ending names the result and the reason — "Checkmate on move 24", "Stalemate — no legal moves, but no check" — instead of a bare "Game over". |
+| **Proximity / Uniform connectedness** | Status, board, and controls share one card; material and move list are separate groups below it. |
+| **Prägnanz** | Two board colours, one highlight for the last move, one for check. No gradients, no piece shadows doing nothing. |
+| **Pareto** | The 20% is: pick a piece, see where it goes, move it. That path is one tap deep and never blocked. |
+
+Correctness is not a UX law, but an interface that allows an illegal move has no UX at all. The move
+generator is verified with `perft` to depth 5 — 4,865,609 positions, matching the published count
+exactly — plus targeted tests for castling through check, en passant, promotion, absolute pins,
+back-rank mate, and stalemate.
