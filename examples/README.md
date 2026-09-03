@@ -76,7 +76,7 @@ and almost every decision below follows from that.
 | **Jakob's (pieces)** | Real chess pieces — the standard Cburnett set from Wikimedia Commons, inlined as SVG data URIs. Vector, so they stay sharp at any board size, and the file stays self-contained with no network requests. Their own black outlines are what make a white piece readable on a light square, which is what the text glyphs needed a synthetic stroke to fake. |
 | **Similarity / Prägnanz** | The board is exempt from the theme. Dark mode originally recoloured the squares, which put black pieces at 1.29:1 against them — the pattern survived, the pieces didn't. Classic square colours now hold in both themes; only the chrome around the board changes. |
 | **Peak-End (the review)** | The game ends into a lesson, not a dead end. At game over the review — not "Play again" — is the one filled button, because after a loss the useful next step is understanding it; once you've used it, Play again takes the highlight back. |
-| **Sound** | Eight sounds, each answering a question the screen answers slower. A capture is heavier and darker than a quiet move; check is the one sound that is unmistakably not a move; take-back reverses rather than advances. Synthesised with WebAudio, so the file stays self-contained — no assets. |
+| **Sound** | Ten sounds, each answering a question the screen answers slower. Your move and your opponent's move are deliberately different, so you can tell who moved without looking; an impossible move gets a dull thud rather than silence. A capture is heavier and darker than a quiet move; check is the one sound that is unmistakably not a move; take-back reverses rather than advances. Synthesised with WebAudio, so the file stays self-contained — no assets. |
 
 ### The post-game review
 
@@ -97,6 +97,22 @@ Three decisions did most of the work:
 - **Advice has to be playable.** At this depth many moves tie, and the search originally returned the
   first one in generation order — producing "a4 was better", which is true and useless. Ties now
   break toward captures, central squares, and developing moves, so the same position advises "Nc3".
+
+### Fixes the screenshots caught
+
+Three defects that passed review in code and only showed up on screen:
+
+- **A 400px hole above the board on desktop.** The sidebar occupied a
+  row-spanning grid area, so its height inflated the header row and pushed the board down the page.
+  The two columns are now independent stacks — nothing spans, nothing can push.
+- **"5 Goods" and "2 Inaccuracys".** Chip labels were pluralised by appending an `s`. English does not
+  work that way, and neither word pluralises like that. There is now a plural table.
+- **Three buttons at game over, one of them meaningless.** Taking a move back after checkmate is not
+  the next step; Review and Play again are. Take back is hidden once the game ends.
+
+Also from the Apple pass: the level control moved from the bottom of the board card up beside the
+opponent picker it modifies — a control belongs next to what it changes — and each walkthrough step
+is now abandonable, so pressing Next mid-animation cannot leave two steps running at once.
 
 ### The guided walkthrough
 
@@ -122,6 +138,8 @@ past, a mate allowed), not chosen from a list of platitudes. And the panel state
 engine is: depth 3, reliable on hung pieces, missed captures and mates, not a substitute for a real
 engine on quiet positional moves. A teaching tool that overstates its own authority teaches the wrong
 lesson twice.
+
+### Sound, and what is not in it
 
 Sound follows the same rule as everything else here: it has to carry information. Picking a piece
 up speaks and putting it down doesn't, because only one of those is a commitment. The computer's
@@ -166,6 +184,16 @@ exactly — plus targeted tests for castling through check, en passant, promotio
 back-rank mate, and stalemate.
 
 ---
+
+## On the chess.com sound files
+
+They are not used here, and deliberately so: they are chess.com's copyrighted audio served from their
+CDN, so embedding them would redistribute someone's assets from a public repo, and hotlinking them
+would spend their bandwidth and add a network dependency to a file whose whole point is that it has
+none. What the sounds here borrow is the *taxonomy* — separate events for your move, your opponent's
+move, capture, castle, check, promotion, game start, game end, and an illegal attempt — which is the
+genuinely good idea in that list. Everything is synthesised with WebAudio. If real recordings are
+wanted, Lichess publishes openly-licensed sound sets that can be used with attribution.
 
 ## Credits
 

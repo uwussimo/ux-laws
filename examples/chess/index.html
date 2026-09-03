@@ -69,7 +69,10 @@
     -webkit-font-smoothing: antialiased;
   }
   main { width: 100%; max-width: 460px; padding: 16px 16px 32px; display: flex; flex-direction: column; gap: 16px; }
-  .side { display: flex; flex-direction: column; gap: 16px; }
+  .board-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .levelbar { display: flex; align-items: center; gap: 10px; }
+  .levelbar-label { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 
   header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   h1 { font-size: 17px; font-weight: 800; margin: 0; color: var(--text-strong); letter-spacing: -.01em; }
@@ -133,7 +136,10 @@
     background: radial-gradient(circle at center,
       rgba(255,64,64,.95) 0%, rgba(255,64,64,.72) 38%, rgba(255,64,64,0) 72%);
   }
-  .sq:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; z-index: 3; }
+  .sq:focus-visible { outline: 3px solid var(--blue); outline-offset: -3px; z-index: 3; }
+  /* Feedback belongs on the press, not the release — the piece answers the
+     finger before the move is even committed. */
+  .sq:active:not(:disabled) .piece { transform: scale(.92); }
   .sq:disabled { cursor: default; }
   /* The standard Cburnett pieces from Wikimedia Commons, inlined as SVG data
      URIs: vector, so they are sharp at any board size, and the file stays
@@ -142,6 +148,7 @@
      needed a synthetic stroke before. */
   .piece {
     pointer-events: none; position: relative; z-index: 2;
+    transition: transform .12s cubic-bezier(.32,.72,.24,1);
     width: 92%; height: 92%;
     background-size: contain; background-position: center; background-repeat: no-repeat;
     filter: drop-shadow(0 1px 1px rgba(0,0,0,.22));
@@ -229,9 +236,11 @@
 
   /* The piece travels instead of teleporting: a move you can see happening is
      a move you can follow. Distance and direction are the information. */
+  /* Critically damped feel: decisive arrival, no overshoot. A replayed move is
+     not a flick, so it gets no bounce. */
   .flyer {
-    position: absolute; z-index: 5; pointer-events: none;
-    transition: transform .3s cubic-bezier(.22,.7,.24,1);
+    position: absolute; z-index: 5; pointer-events: none; will-change: transform;
+    transition: transform .34s cubic-bezier(.32, .72, .24, 1);
   }
 
   .walk { display: none; flex-direction: column; gap: 10px; }
@@ -253,7 +262,7 @@
   .review.show { display: flex; }
   .review-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .score { display: flex; align-items: baseline; gap: 8px; }
-  .score .num { font-size: 34px; font-weight: 800; letter-spacing: -.03em; color: var(--green-text); }
+  .score .num { font-size: 34px; font-weight: 800; letter-spacing: -.03em; color: var(--green-text); font-variant-numeric: tabular-nums; }
   .score .of { font-size: 13px; color: var(--muted); font-weight: 700; }
   .score .who { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; font-weight: 800; }
 
@@ -336,27 +345,35 @@
      below the fold. Board left, panel right is what every chess site does. */
   @media (min-width: 900px) {
     body { align-items: flex-start; }
+    /* Two independent columns. The previous version placed the sidebar in a
+       row-spanning grid area, which let its height inflate the header row and
+       pushed the board hundreds of pixels down the page. */
     main {
       max-width: 1040px; padding: 24px 24px 40px;
-      display: grid; justify-content: center;
+      display: grid; justify-content: center; align-items: start;
       grid-template-columns: minmax(340px, 600px) minmax(300px, 360px);
-      grid-template-areas: "hd sd" "bd sd";
-      column-gap: 24px; row-gap: 16px; align-items: start;
+      column-gap: 24px;
     }
-    header { grid-area: hd; }
-    #board-card { grid-area: bd; }
-    .side { grid-area: sd; }
     .moves { max-height: 320px; }
     .hint { text-align: left; }
     .credit { text-align: left; align-items: flex-start; }
   }
 
   .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
-  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  /* Reduced motion keeps the feedback and drops the travel. */
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+  /* Higher contrast: firmer edges rather than a different palette. */
+  @media (prefers-contrast: more) {
+    :root { --line: #b9b9b9; --line-strong: #8a8a8a; --muted: #5a5a5a; }
+    .card, .moves, .meta div, button.action, .icon-btn { border-color: var(--line-strong); }
+  }
 </style>
 </head>
 <body>
 <main>
+  <div class="board-col">
   <header>
     <h1>Chess</h1>
     <div class="header-right">
@@ -376,6 +393,16 @@
       </button>
     </div>
   </header>
+
+  <!-- Mapping: the level belongs beside the opponent it applies to, not
+       stranded under the buttons at the bottom of the board. -->
+  <div class="levelbar" id="levelbar">
+    <span class="levelbar-label">Level</span>
+    <div class="segmented" id="difficulty" role="group" aria-label="Difficulty">
+      <button id="diff-casual" aria-pressed="true">Casual</button>
+      <button id="diff-strong" aria-pressed="false">Stronger</button>
+    </div>
+  </div>
 
   <div class="card" id="board-card">
     <div class="status">
@@ -400,10 +427,7 @@
       <button class="action" id="restart">New game</button>
     </div>
 
-    <div class="segmented" id="difficulty" role="group" aria-label="Difficulty" style="align-self:center">
-      <button id="diff-casual" aria-pressed="true">Casual</button>
-      <button id="diff-strong" aria-pressed="false">Stronger</button>
-    </div>
+  </div>
   </div>
 
   <aside class="side">
@@ -722,6 +746,9 @@
   const moveAccuracy = drop => Math.max(0, Math.min(100, 103.1668 * Math.exp(-0.04354 * drop) - 3.1669));
   const gradeOf = drop => drop >= 20 ? "blunder" : drop >= 10 ? "mistake" : drop >= 5 ? "inacc" : drop >= 2 ? "good" : "best";
   const GRADE_LABEL = { blunder:"Blunder", mistake:"Mistake", inacc:"Inaccuracy", good:"Good", best:"Best" };
+  // "Good" and "Best" describe a quality and do not pluralise; "Inaccuracy" does
+  // not pluralise by adding an s. Naive concatenation printed "5 Goods".
+  const GRADE_PLURAL = { blunder:"Blunders", mistake:"Mistakes", inacc:"Inaccuracies", good:"Good", best:"Best" };
   const PIECE_WORD = { p:"pawn", n:"knight", b:"bishop", r:"rook", q:"queen", k:"king" };
 
   // One search per position yields both numbers we need: what the best move was
@@ -897,28 +924,63 @@
       src.start(t0);
     }
 
+    // A piece landing on a board is a knock with a body: a short broadband
+    // transient plus a low resonant thump. One or the other alone reads as
+    // static or as a beep.
+    function wood({ freq = 200, gain = .5, bright = 1500, dur = .055, delay = 0 } = {}) {
+      const c = ac(); if (!c) return;
+      const t0 = c.currentTime + delay;
+      const n = Math.max(1, Math.floor(c.sampleRate * dur));
+      const buf = c.createBuffer(1, n, c.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3.2);
+      const src = c.createBufferSource(); src.buffer = buf;
+      const bp = c.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = bright; bp.Q.value = .9;
+      const ng = c.createGain(); ng.gain.value = gain;
+      src.connect(bp); bp.connect(ng); ng.connect(master); src.start(t0);
+
+      const body = c.createOscillator(), bg = c.createGain();
+      body.type = "sine"; body.frequency.setValueAtTime(freq, t0);
+      body.frequency.exponentialRampToValueAtTime(freq * .72, t0 + dur * 1.6);
+      bg.gain.setValueAtTime(0.0001, t0);
+      bg.gain.exponentialRampToValueAtTime(gain * .8, t0 + .006);
+      bg.gain.exponentialRampToValueAtTime(0.0001, t0 + dur * 2.2);
+      body.connect(bg); bg.connect(master);
+      body.start(t0); body.stop(t0 + dur * 2.4);
+    }
+
     return {
       get on() { return on; },
       toggle() {
         on = !on;
         store.set("chess-sound", on ? "on" : "off");
-        if (on) knock({ dur: 0.04, gain: 0.3, cutoff: 2000 });   // confirm the switch with the switch
+        if (on) wood({ freq: 260, gain: .35, bright: 2000, dur: .03 });
         return on;
       },
-      select() { knock({ dur: 0.025, gain: 0.16, cutoff: 2400 }); },
-      move()   { knock({ dur: 0.06,  gain: 0.5,  cutoff: 1500 }); },
-      // Von Restorff, in audio: a capture is heavier and darker than a quiet
-      // move, so losing a piece never sounds like nothing happened.
-      capture() { knock({ dur: 0.1, gain: 0.75, cutoff: 700 }); tone(150, { dur: 0.09, gain: 0.28, type: "sine" }); },
-      castle()  { knock({ dur: 0.05, gain: 0.45, cutoff: 1500 }); knock({ dur: 0.05, gain: 0.45, cutoff: 1500, delay: 0.1 }); },
-      promote() { tone(660, { dur: 0.08 }); tone(880, { dur: 0.08, delay: 0.08 }); tone(1320, { dur: 0.12, delay: 0.16 }); },
-      // Check is the one thing you must not miss, so it is the one sound that
-      // is unmistakably not a move.
-      check()   { tone(880, { dur: 0.07, gain: 0.3 }); tone(1174, { dur: 0.1, gain: 0.3, delay: 0.09 }); },
-      win()     { [523, 659, 784].forEach((f, i) => tone(f, { dur: 0.16, gain: 0.3, delay: i * 0.11 })); },
-      lose()    { [392, 330, 262].forEach((f, i) => tone(f, { dur: 0.2, gain: 0.28, delay: i * 0.13 })); },
-      draw()    { tone(440, { dur: 0.18, gain: 0.26 }); tone(392, { dur: 0.22, gain: 0.26, delay: 0.14 }); },
-      back()    { knock({ dur: 0.04, gain: 0.3, cutoff: 900 }); tone(300, { dur: 0.07, gain: 0.2, type: "sine", delay: 0.02 }); }
+      select()  { wood({ freq: 320, gain: .16, bright: 2600, dur: .02 }); },
+      // Your move and your opponent's move are different events, so they are
+      // different sounds — you can tell who moved without looking up.
+      move(mine = true) {
+        mine ? wood({ freq: 210, gain: .5, bright: 1700 })
+             : wood({ freq: 165, gain: .45, bright: 1150, dur: .065 });
+      },
+      capture() {
+        wood({ freq: 130, gain: .75, bright: 800, dur: .085 });
+        tone(90, { dur: .1, gain: .3, type: "sine" });
+      },
+      castle()  { wood({ freq: 200, gain: .45 }); wood({ freq: 190, gain: .42, delay: .105 }); },
+      // Check must be unmistakably not a move — it is the one thing you cannot
+      // afford to miss, so it is the one sound with a pitch.
+      check()   { tone(880, { dur: .07, gain: .3 }); tone(1174, { dur: .1, gain: .3, delay: .09 }); },
+      promote() { [660, 880, 1320].forEach((f, i) => tone(f, { dur: .09, gain: .28, delay: i * .08 })); },
+      start()   { tone(392, { dur: .1, gain: .24 }); tone(523, { dur: .14, gain: .26, delay: .1 }); },
+      win()     { [523, 659, 784].forEach((f, i) => tone(f, { dur: .16, gain: .3, delay: i * .11 })); },
+      lose()    { [392, 330, 262].forEach((f, i) => tone(f, { dur: .2, gain: .28, delay: i * .13 })); },
+      draw()    { tone(440, { dur: .18, gain: .26 }); tone(392, { dur: .22, gain: .26, delay: .14 }); },
+      // An impossible move is a dull thud, not an error chime. It says "that
+      // did not happen" without scolding.
+      illegal() { wood({ freq: 98, gain: .4, bright: 380, dur: .07 }); },
+      back()    { wood({ freq: 150, gain: .3, bright: 700, dur: .05 }); tone(260, { dur: .07, gain: .18, type: "sine", delay: .02 }); }
     };
   })();
 
@@ -926,7 +988,7 @@
   const el = id => document.getElementById(id);
   const boardEl = el("board"), statusEl = el("status"), subEl = el("status-sub");
   const undoBtn = el("undo"), restartBtn = el("restart"), liveEl = el("live");
-  const promoEl = el("promo"), promoRow = el("promo-row"), diffEl = el("difficulty");
+  const promoEl = el("promo"), promoRow = el("promo-row"), levelBar = el("levelbar");
 
   const ui = { s: initial(), sel: null, targets: [], history: [], sans: [], last: null,
                vsCpu: true, depth: 2, busy: false, over: null, pendingPromo: null,
@@ -968,7 +1030,11 @@
       ui.targets = ui.sel === null ? [] : legal(ui.s).filter(m => m.from === i);
       if (ui.sel !== null) Sound.select();   // picking up speaks; putting down doesn't
     } else {
-      ui.sel = null; ui.targets = [];   // tapping empty space deselects; no error
+      // Trying to move somewhere the piece cannot go is not an error worth a
+      // dialog, but it is worth an answer: a dull thud, then the piece is put
+      // back down. Silence here reads as a broken tap.
+      if (ui.sel !== null) Sound.illegal();
+      ui.sel = null; ui.targets = [];
     }
     render();
   }
@@ -1005,10 +1071,11 @@
   // The sound names what happened, in the order it happened: the move lands,
   // then — only if there is news — check or the end of the game.
   function playMove(m, text) {
+    const mine = !ui.vsCpu || colorOf(m.piece) === "w";
     if (m.castle) Sound.castle();
     else if (m.promo) Sound.promote();
     else if (m.captured) Sound.capture();
-    else Sound.move();
+    else Sound.move(mine);
     if (ui.over) {
       const won = ui.over.type === "mate" && (!ui.vsCpu || ui.over.winner === "w");
       const lost = ui.over.type === "mate" && ui.vsCpu && ui.over.winner === "b";
@@ -1141,10 +1208,11 @@
     // review is the loud button — until you have used it, then Play again is.
     const reviewIsNext = canReview && !ui.review && !ui.reviewing;
     reviewBtn.classList.toggle("primary", reviewIsNext);
+    undoBtn.style.display = ui.over ? "none" : "";
     undoBtn.disabled = !ui.history.length || ui.busy || ui.reviewing || !!ui.viewState;
     restartBtn.textContent = ui.over ? "Play again" : "New game";
     restartBtn.classList.toggle("primary", !!ui.over && !reviewIsNext);
-    diffEl.style.display = ui.vsCpu ? "flex" : "none";
+    levelBar.style.display = ui.vsCpu ? "flex" : "none";
     if (!ui.pendingPromo) promoEl.classList.remove("show");
   }
 
@@ -1213,7 +1281,7 @@
     for (const e of mine) counts[e.grade] = (counts[e.grade] || 0) + 1;
     el("chips").innerHTML = ["best","good","inacc","mistake","blunder"]
       .filter(g => counts[g])
-      .map(g => `<span class="chip ${g}"><b>${counts[g]}</b> ${GRADE_LABEL[g]}${counts[g] > 1 && g !== "best" ? "s" : ""}</span>`)
+      .map(g => `<span class="chip ${g}"><b>${counts[g]}</b> ${counts[g] === 1 ? GRADE_LABEL[g] : GRADE_PLURAL[g]}</span>`)
       .join("");
 
     // Hick's: three moments, not forty. The worst ones, worst first.
@@ -1338,6 +1406,8 @@
   }
 
   async function walkStep() {
+    const gen = ++walkGen;
+    const alive = () => ui.walk && walkGen === gen;
     const i = ui.walk.idx;
     if (i >= ui.history.length) return endWalk();
     const h = ui.history[i];
@@ -1351,21 +1421,24 @@
     render();
 
     // A mistake is worth stopping for; an ordinary move is not.
-    if (n.key) { await Speech.say(n.speech); if (!ui.walk) return; await readPause(true); }
-    if (!ui.walk) return;
+    if (n.key) { await Speech.say(n.speech); if (!alive()) return; await readPause(true); }
+    if (!alive()) return;
 
     ui.viewMarks = null;
     render();
     await animate(h.s, h.m);
-    if (!ui.walk) return;
+    if (!alive()) return;
 
     ui.viewState = make(h.s, h.m);
     ui.last = { from: h.m.from, to: h.m.to };
     render();
-    if (h.m.captured) Sound.capture(); else if (h.m.castle) Sound.castle(); else Sound.move();
+    if (h.m.captured) Sound.capture(); else if (h.m.castle) Sound.castle();
+    else Sound.move(!ui.vsCpu || colorOf(h.m.piece) === "w");
     ui.walk.idx = i + 1;
     await readPause(n.key);
   }
+
+  let walkGen = 0;
 
   async function walkLoop() {
     while (ui.walk && ui.walk.playing && ui.walk.idx < ui.history.length) await walkStep();
@@ -1409,6 +1482,7 @@
     if (!ui.walk) return;
     ui.walk.playing = !ui.walk.playing;
     el("walk-play").textContent = ui.walk.playing ? "Pause" : "Play";
+    walkGen++;                      // abandon whatever step is mid-flight
     Speech.stop();
     if (ui.walk.playing) walkLoop();
   });
@@ -1416,6 +1490,7 @@
     if (!ui.walk) return;
     ui.walk.playing = false;
     el("walk-play").textContent = "Play";
+    walkGen++;
     Speech.stop();
     await walkStep();
   });
@@ -1449,6 +1524,7 @@
     el("walk").classList.remove("show");
     el("walk-start").style.display = "none";
     promoEl.classList.remove("show");
+    Sound.start();
     el("review-panel").classList.remove("show");
     el("review-bar").style.display = "";
     el("review-fill").style.width = "0";
