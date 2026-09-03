@@ -73,6 +73,7 @@ and almost every decision below follows from that.
 | **Proximity / Uniform connectedness** | Status, board, and controls share one card; material and move list are separate groups below it. |
 | **Prägnanz** | Two board colours, one highlight for the last move, one for check. No gradients, no piece shadows doing nothing. |
 | **Pareto** | The 20% is: pick a piece, see where it goes, move it. That path is one tap deep and never blocked. |
+| **Jakob's (pieces)** | Real chess pieces — the standard Cburnett set from Wikimedia Commons, inlined as SVG data URIs. Vector, so they stay sharp at any board size, and the file stays self-contained with no network requests. Their own black outlines are what make a white piece readable on a light square, which is what the text glyphs needed a synthetic stroke to fake. |
 | **Similarity / Prägnanz** | The board is exempt from the theme. Dark mode originally recoloured the squares, which put black pieces at 1.29:1 against them — the pattern survived, the pieces didn't. Classic square colours now hold in both themes; only the chrome around the board changes. |
 | **Peak-End (the review)** | The game ends into a lesson, not a dead end. At game over the review — not "Play again" — is the one filled button, because after a loss the useful next step is understanding it; once you've used it, Play again takes the highlight back. |
 | **Sound** | Eight sounds, each answering a question the screen answers slower. A capture is heavier and darker than a quiet move; check is the one sound that is unmistakably not a move; take-back reverses rather than advances. Synthesised with WebAudio, so the file stays self-contained — no assets. |
@@ -129,6 +130,29 @@ than a mixer (Hick's), it remembers itself across visits (Tesler's), it survives
 audio or no storage without taking the game down (Postel's), and no `AudioContext` is ever created
 while muted.
 
+### A white, Duolingo-style skin
+
+The chrome is light-only: white surfaces, rounded type, thick-bottomed buttons that physically press
+down. That last one is not decoration — the raised edge says *pressable* before you touch it, and the
+press moves, which a flat rectangle can only imitate on hover.
+
+The palette copies the look but not the defects. Duolingo's own secondary grey is `#afafaf`, which is
+**2.19:1** on white, and white text on its signature `#58cc02` green is **2.09:1** — both well under
+the 4.5:1 floor for body text. So the greys and the button green here are darkened until they pass,
+while the bright green survives where it is a fill rather than a background for text (progress bars,
+soft panels). Measured, not assumed:
+
+| | ratio |
+| --- | --- |
+| body / strong text on white | 8.7:1 · 11.0:1 |
+| muted text (`#767676`, not `#afafaf`) | 4.5:1 |
+| white label on the green button (`#358000`) | 5.0:1 |
+| blue type (`#12719e`, not `#1cb0f6`) | 5.4:1 |
+| move hints on light / dark squares | 6.6:1 · 3.5:1 |
+
+Dark mode was removed rather than restyled. It had already shipped one contrast failure, a second
+theme doubles every future check, and "a white UI" is a decision worth making cleanly.
+
 Contrast is measured rather than eyeballed. Every piece/square pair clears 4.5:1 — white pieces
 carry their contrast in a `-webkit-text-stroke` edge (10.8:1) since white-on-cream fill is only
 1.37:1 — and the legal-move dots were opened from 32% to 60% opacity after measuring 1.77:1 against
@@ -140,3 +164,11 @@ Correctness is not a UX law, but an interface that allows an illegal move has no
 generator is verified with `perft` to depth 5 — 4,865,609 positions, matching the published count
 exactly — plus targeted tests for castling through check, en passant, promotion, absolute pins,
 back-rank mate, and stalemate.
+
+---
+
+## Credits
+
+Chess pieces are the standard set by [Cburnett](https://commons.wikimedia.org/wiki/User:Cburnett) via
+Wikimedia Commons, triple-licensed GFDL / [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) / BSD.
+They are inlined in `examples/chess/index.html` as SVG data URIs, and attributed in the page footer.

@@ -7,42 +7,50 @@
 <meta name="description" content="Playable chess built by an agent with the ux-laws skill loaded.">
 <style>
   :root {
-    --bg: #f6f7f9;
+    color-scheme: light;              /* one theme, deliberately — see README */
+    --bg: #ffffff;
     --surface: #ffffff;
-    --line: #e3e6ea;
-    --text: #14171a;
-    --muted: #666e78;
-    --accent: #2f6df6;
-    --accent-soft: #e7efff;
-    /* The board does not follow the theme. A chess board looks like a chess
-       board in daylight and at night; inverting it in dark mode was what made
-       the pieces disappear. Only the page chrome around it changes. */
-    --sq-light: #f0d9b5;
-    --sq-dark: #b58863;
-    --sq-edge: rgba(60,42,28,.55);
+    --snow: #f7f7f7;
+    --line: #e5e5e5;
+    --line-strong: #d8d8d8;
+    --text: #4b4b4b;                  /* 8.7:1 on white */
+    --text-strong: #3c3c3c;           /* 11.0:1 */
+    --muted: #767676;                 /* Duolingo's own #afafaf is 2.19:1 — unusable for text */
+    --muted-soft: #cfcfcf;            /* decorative only: dividers, empty dots */
+
+    --green: #58cc02;                 /* fills and bars only — never behind text */
+    --green-edge: #58a700;
+    --green-btn: #358000;             /* 4.95:1 with a white label */
+    --green-text: #3d7a00;
+    --green-soft: #d7ffb8;
+    --blue: #1cb0f6;                  /* fills, borders, icons */
+    --blue-edge: #1899d6;
+    --blue-text: #12719e;             /* 5.4:1 — the blue that is allowed to be type */
+    --blue-soft: #ddf4ff;
+    --red: #ff4b4b;
+    --red-edge: #ea2b2b;
+    --red-soft: #ffdfe0;
+    --amber: #ffc800;
+    --amber-soft: #fff4d6;
+
+    --accent: var(--blue);
+    --accent-soft: var(--blue-soft);
+    --danger: var(--red);
+    --win: var(--green-edge);
+
+    /* Green board to sit with the green UI — still a classic chess pair. */
+    --sq-light: #eeeed2;
+    --sq-dark: #769656;
+    --sq-edge: #d8d8d8;
     --piece-w: #ffffff;
     --piece-b: #2a2724;
-    --mark: rgba(255, 206, 61, .55);
-    --mark-strong: rgba(255, 196, 0, .72);
-    --hint: rgba(20, 16, 10, .6);   /* .32 measured 1.77:1 on dark squares; .6 clears 3:1 on both */
-    --danger: #d1495b;
-    --win: #16a34a;
-    --radius: 14px;
-    --shadow: 0 1px 2px rgba(16,20,26,.06), 0 8px 24px rgba(16,20,26,.06);
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #0f1115;
-      --surface: #171a20;
-      --line: #272b33;
-      --text: #eef1f5;
-      --muted: #98a1ad;
-      --accent: #5b8cff;
-      --accent-soft: #1b2740;
-      --danger: #ff7d8f;
-      --win: #4ade80;
-      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
-    }
+    --mark: rgba(255, 200, 0, .55);
+    --mark-strong: rgba(255, 184, 0, .78);
+    --hint: rgba(13, 26, 6, .72);     /* .6 measured 2.82:1 on the dark squares */
+
+    --radius: 16px;
+    --radius-lg: 20px;
+    --shadow: none;
   }
 
   * { box-sizing: border-box; }
@@ -53,44 +61,48 @@
     justify-content: center;
     background: var(--bg);
     color: var(--text);
-    font: 16px/1.5 ui-sans-serif, -apple-system, "Segoe UI", Roboto, system-ui, sans-serif;
+    /* Rounded type is most of the friendliness. No web font — the file stays
+       self-contained, and every platform has a rounded face worth using. */
+    font: 16px/1.5 ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN",
+          Nunito, "Segoe UI Variable", "Segoe UI", Roboto, system-ui, sans-serif;
+    font-weight: 500;
     -webkit-font-smoothing: antialiased;
   }
   main { width: 100%; max-width: 460px; padding: 16px 16px 32px; display: flex; flex-direction: column; gap: 16px; }
   .side { display: flex; flex-direction: column; gap: 16px; }
 
   header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  h1 { font-size: 15px; font-weight: 600; margin: 0; color: var(--muted); }
+  h1 { font-size: 17px; font-weight: 800; margin: 0; color: var(--text-strong); letter-spacing: -.01em; }
 
-  .segmented { display: flex; gap: 4px; padding: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; }
+  .segmented { display: flex; gap: 4px; padding: 4px; background: var(--snow); border: 2px solid var(--line); border-radius: 999px; }
   .segmented button {
     appearance: none; border: 0; background: transparent; color: var(--muted);
-    font: inherit; font-size: 13px; font-weight: 500;
-    padding: 8px 14px; border-radius: 999px; cursor: pointer;   /* Fitts's: real hit area */
+    font: inherit; font-size: 13px; font-weight: 800; letter-spacing: .01em;
+    padding: 9px 16px; border-radius: 999px; cursor: pointer;   /* Fitts's: real hit area */
   }
-  .segmented button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+  .segmented button[aria-pressed="true"] { background: var(--surface); color: var(--blue-text); box-shadow: 0 2px 0 var(--line); }
   .segmented button:hover:not([aria-pressed="true"]) { color: var(--text); }
 
   /* Uniform connectedness: status, board and controls share one surface. */
   .card {
-    background: var(--surface); border: 1px solid var(--line);
-    border-radius: calc(var(--radius) + 6px); box-shadow: var(--shadow);
+    background: var(--surface); border: 2px solid var(--line);
+    border-radius: var(--radius-lg);
     padding: 16px; display: flex; flex-direction: column; gap: 14px;
   }
 
   /* Serial position: whose move it is comes first and largest. */
   .status { min-height: 50px; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
-  .status-line { font-size: 19px; font-weight: 650; letter-spacing: -.02em; display: flex; align-items: center; gap: 8px; }
-  .status-sub { font-size: 13px; color: var(--muted); }
+  .status-line { font-size: 21px; font-weight: 800; letter-spacing: -.02em; color: var(--text-strong); display: flex; align-items: center; gap: 8px; }
+  .status-sub { font-size: 13px; color: var(--muted); font-weight: 600; }
   .status-line.check { color: var(--danger); }
-  .status-line.over { color: var(--win); }
-  .turn-dot { width: 11px; height: 11px; border-radius: 50%; border: 1px solid var(--muted); flex: none; }
+  .status-line.over { color: var(--green-text); }
+  .turn-dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--muted-soft); flex: none; }
   .turn-dot.w { background: #fff; }
   .turn-dot.b { background: #1a1d22; }
 
   /* Miller's: coordinates are printed, so nobody has to count files in their head. */
   .board-wrap { display: grid; grid-template-columns: 14px 1fr; grid-template-rows: 1fr 14px; gap: 4px; }
-  .ranks, .files { display: grid; font-size: 10px; color: var(--muted); }
+  .ranks, .files { display: grid; font-size: 11px; color: var(--muted); font-weight: 700; }
   .ranks { grid-template-rows: repeat(8, 1fr); align-items: center; justify-items: center; }
   .files { grid-template-columns: repeat(8, 1fr); justify-items: center; grid-column: 2; }
 
@@ -98,9 +110,8 @@
     position: relative;
     container-type: inline-size;
     display: grid; grid-template-columns: repeat(8, 1fr);
-    border-radius: 6px; overflow: hidden;
-    border: 1px solid var(--sq-edge);
-    box-shadow: 0 2px 10px rgba(0,0,0,.18);
+    border-radius: 12px; overflow: hidden;
+    border: 2px solid var(--line);
   }
   /* Fitts's: the board takes the full width available, so squares stay
      comfortably tappable (~48px on a phone) instead of decorative. */
@@ -124,21 +135,29 @@
   }
   .sq:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; z-index: 3; }
   .sq:disabled { cursor: default; }
-  .piece { pointer-events: none; position: relative; z-index: 2; }
-  /* Both piece colours are readable on both square colours — verified, not
-     eyeballed: every combination clears 4.5:1. */
-  .piece.w {
-    color: var(--piece-w);
-    -webkit-text-stroke: 1.6px #2a2724;   /* the edge carries the contrast: 10.8:1 on light squares */
-    paint-order: stroke fill;
-    text-shadow: 0 1px 2px rgba(0,0,0,.4);
+  /* The standard Cburnett pieces from Wikimedia Commons, inlined as SVG data
+     URIs: vector, so they are sharp at any board size, and the file stays
+     self-contained with no network requests. Their black outlines are what
+     makes a white piece readable on a light square — the reason text glyphs
+     needed a synthetic stroke before. */
+  .piece {
+    pointer-events: none; position: relative; z-index: 2;
+    width: 92%; height: 92%;
+    background-size: contain; background-position: center; background-repeat: no-repeat;
+    filter: drop-shadow(0 1px 1px rgba(0,0,0,.22));
   }
-  .piece.b {
-    color: var(--piece-b);
-    -webkit-text-stroke: .6px #171512;
-    paint-order: stroke fill;
-    text-shadow: 0 1px 1px rgba(255,255,255,.18);
-  }
+  .piece.wb { background-image: url("data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgNDUgNDUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgdmVyc2lvbj0iMS4xIiB3aWR0aD0iNDUiIGhlaWdodD0iNDUiPjxnIHN0eWxlPSJvcGFjaXR5OjE7IGZpbGw6bm9uZTsgZmlsbC1ydWxlOmV2ZW5vZGQ7IGZpbGwtb3BhY2l0eToxOyBzdHJva2U6IzAwMDAwMDsgc3Ryb2tlLXdpZHRoOjEuNTsgc3Ryb2tlLWxpbmVjYXA6cm91bmQ7IHN0cm9rZS1saW5lam9pbjpyb3VuZDsgc3Ryb2tlLW1pdGVybGltaXQ6NDsgc3Ryb2tlLWRhc2hhcnJheTpub25lOyBzdHJva2Utb3BhY2l0eToxOyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMCwwLjYpIj48ZyBzdHlsZT0iZmlsbDojZmZmZmZmOyBzdHJva2U6IzAwMDAwMDsgc3Ryb2tlLWxpbmVjYXA6YnV0dDsiPjxwYXRoIGQ9Ik0gOSwzNiBDIDEyLjM5LDM1LjAzIDE5LjExLDM2LjQzIDIyLjUsMzQgQyAyNS44OSwzNi40MyAzMi42MSwzNS4wMyAzNiwzNiBDIDM2LDM2IDM3LjY1LDM2LjU0IDM5LDM4IEMgMzguMzIsMzguOTcgMzcuMzUsMzguOTkgMzYsMzguNSBDIDMyLjYxLDM3LjUzIDI1Ljg5LDM4Ljk2IDIyLjUsMzcuNSBDIDE5LjExLDM4Ljk2IDEyLjM5LDM3LjUzIDksMzguNSBDIDcuNjUsMzguOTkgNi42OCwzOC45NyA2LDM4IEMgNy4zNSwzNi41NCA5LDM2IDksMzYgeiIvPjxwYXRoIGQ9Ik0gMTUsMzIgQyAxNy41LDM0LjUgMjcuNSwzNC41IDMwLDMyIEMgMzAuNSwzMC41IDMwLDMwIDMwLDMwIEMgMzAsMjcuNSAyNy41LDI2IDI3LjUsMjYgQyAzMywyNC41IDMzLjUsMTQuNSAyMi41LDEwLjUgQyAxMS41LDE0LjUgMTIsMjQuNSAxNy41LDI2IEMgMTcuNSwyNiAxNSwyNy41IDE1LDMwIEMgMTUsMzAgMTQuNSwzMC41IDE1LDMyIHoiLz48cGF0aCBkPSJNIDI1IDggQSAyLjUgMi41IDAgMSAxICAyMCw4IEEgMi41IDIuNSAwIDEgMSAgMjUgOCB6Ii8+PC9nPjxwYXRoIGQ9Ik0gMTcuNSwyNiBMIDI3LjUsMjYgTSAxNSwzMCBMIDMwLDMwIE0gMjIuNSwxNS41IEwgMjIuNSwyMC41IE0gMjAsMTggTCAyNSwxOCIgc3R5bGU9ImZpbGw6bm9uZTsgc3Ryb2tlOiMwMDAwMDA7IHN0cm9rZS1saW5lam9pbjptaXRlcjsiLz48L2c+PC9zdmc+"); }
+  .piece.wk { background-image: url("data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgNDUgNDUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgd2lkdGg9IjQ1IiBoZWlnaHQ9IjQ1Ij48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBzdHJva2Utd2lkdGg9IjEuNSI+PHBhdGggc3Ryb2tlLWxpbmVqb2luPSJtaXRlciIgZD0iTTIyLjUgMTEuNjNWNk0yMCA4aDUiLz48cGF0aCBmaWxsPSIjZmZmIiBzdHJva2UtbGluZWNhcD0iYnV0dCIgc3Ryb2tlLWxpbmVqb2luPSJtaXRlciIgZD0iTTIyLjUgMjVzNC41LTcuNSAzLTEwLjVjMCAwLTEtMi41LTMtMi41cy0zIDIuNS0zIDIuNWMtMS41IDMgMyAxMC41IDMgMTAuNSIvPjxwYXRoIGZpbGw9IiNmZmYiIGQ9Ik0xMi41IDM3YzUuNSAzLjUgMTQuNSAzLjUgMjAgMHYtN3M5LTQuNSA2LTEwLjVjLTQtNi41LTEzLjUtMy41LTE2IDRWMjd2LTMuNWMtMi41LTcuNS0xMi0xMC41LTE2LTQtMyA2IDYgMTAuNSA2IDEwLjV2NyIvPjxwYXRoIGQ9Ik0xMi41IDMwYzUuNS0zIDE0LjUtMyAyMCAwbS0yMCAzLjVjNS41LTMgMTQuNS0zIDIwIDBtLTIwIDMuNWM1LjUtMyAxNC41LTMgMjAgMCIvPjwvZz48L3N2Zz4="); }
+  .piece.wn { background-image: url("data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgNDUgNDUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgdmVyc2lvbj0iMS4xIiB3aWR0aD0iNDUiIGhlaWdodD0iNDUiPjxnIHN0eWxlPSJvcGFjaXR5OjE7IGZpbGw6bm9uZTsgZmlsbC1vcGFjaXR5OjE7IGZpbGwtcnVsZTpldmVub2RkOyBzdHJva2U6IzAwMDAwMDsgc3Ryb2tlLXdpZHRoOjEuNTsgc3Ryb2tlLWxpbmVjYXA6cm91bmQ7c3Ryb2tlLWxpbmVqb2luOnJvdW5kO3N0cm9rZS1taXRlcmxpbWl0OjQ7IHN0cm9rZS1kYXNoYXJyYXk6bm9uZTsgc3Ryb2tlLW9wYWNpdHk6MTsiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDAsMC4zKSI+PHBhdGgKICAgICAgZD0iTSAyMiwxMCBDIDMyLjUsMTEgMzguNSwxOCAzOCwzOSBMIDE1LDM5IEMgMTUsMzAgMjUsMzIuNSAyMywxOCIKICAgICAgc3R5bGU9ImZpbGw6I2ZmZmZmZjsgc3Ryb2tlOiMwMDAwMDA7IiAvPjxwYXRoCiAgICAgIGQ9Ik0gMjQsMTggQyAyNC4zOCwyMC45MSAxOC40NSwyNS4zNyAxNiwyNyBDIDEzLDI5IDEzLjE4LDMxLjM0IDExLDMxIEMgOS45NTgsMzAuMDYgMTIuNDEsMjcuOTYgMTEsMjggQyAxMCwyOCAxMS4xOSwyOS4yMyAxMCwzMCBDIDksMzAgNS45OTcsMzEgNiwyNiBDIDYsMjQgMTIsMTQgMTIsMTQgQyAxMiwxNCAxMy44OSwxMi4xIDE0LDEwLjUgQyAxMy4yNyw5LjUwNiAxMy41LDguNSAxMy41LDcuNSBDIDE0LjUsNi41IDE2LjUsMTAgMTYuNSwxMCBMIDE4LjUsMTAgQyAxOC41LDEwIDE5LjI4LDguMDA4IDIxLDcgQyAyMiw3IDIyLDEwIDIyLDEwIgogICAgICBzdHlsZT0iZmlsbDojZmZmZmZmOyBzdHJva2U6IzAwMDAwMDsiIC8+PHBhdGgKICAgICAgZD0iTSA5LjUgMjUuNSBBIDAuNSAwLjUgMCAxIDEgOC41LDI1LjUgQSAwLjUgMC41IDAgMSAxIDkuNSAyNS41IHoiCiAgICAgIHN0eWxlPSJmaWxsOiMwMDAwMDA7IHN0cm9rZTojMDAwMDAwOyIgLz48cGF0aAogICAgICBkPSJNIDE1IDE1LjUgQSAwLjUgMS41IDAgMSAxICAxNCwxNS41IEEgMC41IDEuNSAwIDEgMSAgMTUgMTUuNSB6IgogICAgICB0cmFuc2Zvcm09Im1hdHJpeCgwLjg2NiwwLjUsLTAuNSwwLjg2Niw5LjY5MywtNS4xNzMpIgogICAgICBzdHlsZT0iZmlsbDojMDAwMDAwOyBzdHJva2U6IzAwMDAwMDsiIC8+PC9nPjwvc3ZnPg=="); }
+  .piece.wp { background-image: url("data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgNDUgNDUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgdmVyc2lvbj0iMS4xIiB3aWR0aD0iNDUiIGhlaWdodD0iNDUiPjxwYXRoIGQ9Im0gMjIuNSw5IGMgLTIuMjEsMCAtNCwxLjc5IC00LDQgMCwwLjg5IDAuMjksMS43MSAwLjc4LDIuMzggQyAxNy4zMywxNi41IDE2LDE4LjU5IDE2LDIxIGMgMCwyLjAzIDAuOTQsMy44NCAyLjQxLDUuMDMgQyAxNS40MSwyNy4wOSAxMSwzMS41OCAxMSwzOS41IEggMzQgQyAzNCwzMS41OCAyOS41OSwyNy4wOSAyNi41OSwyNi4wMyAyOC4wNiwyNC44NCAyOSwyMy4wMyAyOSwyMSAyOSwxOC41OSAyNy42NywxNi41IDI1LjcyLDE1LjM4IDI2LjIxLDE0LjcxIDI2LjUsMTMuODkgMjYuNSwxMyBjIDAsLTIuMjEgLTEuNzksLTQgLTQsLTQgeiIgc3R5bGU9Im9wYWNpdHk6MTsgZmlsbDojZmZmZmZmOyBmaWxsLW9wYWNpdHk6MTsgZmlsbC1ydWxlOm5vbnplcm87IHN0cm9rZTojMDAwMDAwOyBzdHJva2Utd2lkdGg6MS41OyBzdHJva2UtbGluZWNhcDpyb3VuZDsgc3Ryb2tlLWxpbmVqb2luOm1pdGVyOyBzdHJva2UtbWl0ZXJsaW1pdDo0OyBzdHJva2UtZGFzaGFycmF5Om5vbmU7IHN0cm9rZS1vcGFjaXR5OjE7Ii8+PC9zdmc+"); }
+  .piece.wq { background-image: url("data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgNDUgNDUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgdmVyc2lvbj0iMS4xIiB3aWR0aD0iNDUiIGhlaWdodD0iNDUiPjxnIHN0eWxlPSJmaWxsOiNmZmZmZmY7c3Ryb2tlOiMwMDAwMDA7c3Ryb2tlLXdpZHRoOjEuNTtzdHJva2UtbGluZWpvaW46cm91bmQiPjxwYXRoIGQ9Ik0gOSwyNiBDIDE3LjUsMjQuNSAzMCwyNC41IDM2LDI2IEwgMzguNSwxMy41IEwgMzEsMjUgTCAzMC43LDEwLjkgTCAyNS41LDI0LjUgTCAyMi41LDEwIEwgMTkuNSwyNC41IEwgMTQuMywxMC45IEwgMTQsMjUgTCA2LjUsMTMuNSBMIDksMjYgeiIvPjxwYXRoIGQ9Ik0gOSwyNiBDIDksMjggMTAuNSwyOCAxMS41LDMwIEMgMTIuNSwzMS41IDEyLjUsMzEgMTIsMzMuNSBDIDEwLjUsMzQuNSAxMSwzNiAxMSwzNiBDIDkuNSwzNy41IDExLDM4LjUgMTEsMzguNSBDIDE3LjUsMzkuNSAyNy41LDM5LjUgMzQsMzguNSBDIDM0LDM4LjUgMzUuNSwzNy41IDM0LDM2IEMgMzQsMzYgMzQuNSwzNC41IDMzLDMzLjUgQyAzMi41LDMxIDMyLjUsMzEuNSAzMy41LDMwIEMgMzQuNSwyOCAzNiwyOCAzNiwyNiBDIDI3LjUsMjQuNSAxNy41LDI0LjUgOSwyNiB6Ii8+PHBhdGggZD0iTSAxMS41LDMwIEMgMTUsMjkgMzAsMjkgMzMuNSwzMCIgc3R5bGU9ImZpbGw6bm9uZSIvPjxwYXRoIGQ9Ik0gMTIsMzMuNSBDIDE4LDMyLjUgMjcsMzIuNSAzMywzMy41IiBzdHlsZT0iZmlsbDpub25lIi8+PGNpcmNsZSBjeD0iNiIgY3k9IjEyIiByPSIyIiAvPjxjaXJjbGUgY3g9IjE0IiBjeT0iOSIgcj0iMiIgLz48Y2lyY2xlIGN4PSIyMi41IiBjeT0iOCIgcj0iMiIgLz48Y2lyY2xlIGN4PSIzMSIgY3k9IjkiIHI9IjIiIC8+PGNpcmNsZSBjeD0iMzkiIGN5PSIxMiIgcj0iMiIgLz48L2c+PC9zdmc+"); }
+  .piece.wr { background-image: url("data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgNDUgNDUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgdmVyc2lvbj0iMS4xIiB3aWR0aD0iNDUiIGhlaWdodD0iNDUiPjxnIHN0eWxlPSJvcGFjaXR5OjE7IGZpbGw6I2ZmZmZmZjsgZmlsbC1vcGFjaXR5OjE7IGZpbGwtcnVsZTpldmVub2RkOyBzdHJva2U6IzAwMDAwMDsgc3Ryb2tlLXdpZHRoOjEuNTsgc3Ryb2tlLWxpbmVjYXA6cm91bmQ7c3Ryb2tlLWxpbmVqb2luOnJvdW5kO3N0cm9rZS1taXRlcmxpbWl0OjQ7IHN0cm9rZS1kYXNoYXJyYXk6bm9uZTsgc3Ryb2tlLW9wYWNpdHk6MTsiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDAsMC4zKSI+PHBhdGgKICAgICAgZD0iTSA5LDM5IEwgMzYsMzkgTCAzNiwzNiBMIDksMzYgTCA5LDM5IHogIgogICAgICBzdHlsZT0ic3Ryb2tlLWxpbmVjYXA6YnV0dDsiIC8+PHBhdGgKICAgICAgZD0iTSAxMiwzNiBMIDEyLDMyIEwgMzMsMzIgTCAzMywzNiBMIDEyLDM2IHogIgogICAgICBzdHlsZT0ic3Ryb2tlLWxpbmVjYXA6YnV0dDsiIC8+PHBhdGgKICAgICAgZD0iTSAxMSwxNCBMIDExLDkgTCAxNSw5IEwgMTUsMTEgTCAyMCwxMSBMIDIwLDkgTCAyNSw5IEwgMjUsMTEgTCAzMCwxMSBMIDMwLDkgTCAzNCw5IEwgMzQsMTQiCiAgICAgIHN0eWxlPSJzdHJva2UtbGluZWNhcDpidXR0OyIgLz48cGF0aAogICAgICBkPSJNIDM0LDE0IEwgMzEsMTcgTCAxNCwxNyBMIDExLDE0IiAvPjxwYXRoCiAgICAgIGQ9Ik0gMzEsMTcgTCAzMSwyOS41IEwgMTQsMjkuNSBMIDE0LDE3IgogICAgICBzdHlsZT0ic3Ryb2tlLWxpbmVjYXA6YnV0dDsgc3Ryb2tlLWxpbmVqb2luOm1pdGVyOyIgLz48cGF0aAogICAgICBkPSJNIDMxLDI5LjUgTCAzMi41LDMyIEwgMTIuNSwzMiBMIDE0LDI5LjUiIC8+PHBhdGgKICAgICAgZD0iTSAxMSwxNCBMIDM0LDE0IgogICAgICBzdHlsZT0iZmlsbDpub25lOyBzdHJva2U6IzAwMDAwMDsgc3Ryb2tlLWxpbmVqb2luOm1pdGVyOyIgLz48L2c+PC9zdmc+"); }
+  .piece.bb { background-image: url("data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgNDUgNDUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgdmVyc2lvbj0iMS4xIiB3aWR0aD0iNDUiIGhlaWdodD0iNDUiPjxnIHN0eWxlPSJvcGFjaXR5OjE7IGZpbGw6bm9uZTsgZmlsbC1ydWxlOmV2ZW5vZGQ7IGZpbGwtb3BhY2l0eToxOyBzdHJva2U6IzAwMDAwMDsgc3Ryb2tlLXdpZHRoOjEuNTsgc3Ryb2tlLWxpbmVjYXA6cm91bmQ7IHN0cm9rZS1saW5lam9pbjpyb3VuZDsgc3Ryb2tlLW1pdGVybGltaXQ6NDsgc3Ryb2tlLWRhc2hhcnJheTpub25lOyBzdHJva2Utb3BhY2l0eToxOyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMCwwLjYpIj48ZyBzdHlsZT0iZmlsbDojMDAwMDAwOyBzdHJva2U6IzAwMDAwMDsgc3Ryb2tlLWxpbmVjYXA6YnV0dDsiPjxwYXRoIGQ9Ik0gOSwzNiBDIDEyLjM5LDM1LjAzIDE5LjExLDM2LjQzIDIyLjUsMzQgQyAyNS44OSwzNi40MyAzMi42MSwzNS4wMyAzNiwzNiBDIDM2LDM2IDM3LjY1LDM2LjU0IDM5LDM4IEMgMzguMzIsMzguOTcgMzcuMzUsMzguOTkgMzYsMzguNSBDIDMyLjYxLDM3LjUzIDI1Ljg5LDM4Ljk2IDIyLjUsMzcuNSBDIDE5LjExLDM4Ljk2IDEyLjM5LDM3LjUzIDksMzguNSBDIDcuNjUsMzguOTkgNi42OCwzOC45NyA2LDM4IEMgNy4zNSwzNi41NCA5LDM2IDksMzYgeiIvPjxwYXRoIGQ9Ik0gMTUsMzIgQyAxNy41LDM0LjUgMjcuNSwzNC41IDMwLDMyIEMgMzAuNSwzMC41IDMwLDMwIDMwLDMwIEMgMzAsMjcuNSAyNy41LDI2IDI3LjUsMjYgQyAzMywyNC41IDMzLjUsMTQuNSAyMi41LDEwLjUgQyAxMS41LDE0LjUgMTIsMjQuNSAxNy41LDI2IEMgMTcuNSwyNiAxNSwyNy41IDE1LDMwIEMgMTUsMzAgMTQuNSwzMC41IDE1LDMyIHoiLz48cGF0aCBkPSJNIDI1IDggQSAyLjUgMi41IDAgMSAxICAyMCw4IEEgMi41IDIuNSAwIDEgMSAgMjUgOCB6Ii8+PC9nPjxwYXRoIGQ9Ik0gMTcuNSwyNiBMIDI3LjUsMjYgTSAxNSwzMCBMIDMwLDMwIE0gMjIuNSwxNS41IEwgMjIuNSwyMC41IE0gMjAsMTggTCAyNSwxOCIgc3R5bGU9ImZpbGw6bm9uZTsgc3Ryb2tlOiNmZmZmZmY7IHN0cm9rZS1saW5lam9pbjptaXRlcjsiLz48L2c+PC9zdmc+"); }
+  .piece.bk { background-image: url("data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgNDUgNDUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgdmVyc2lvbj0iMS4xIiB3aWR0aD0iNDUiIGhlaWdodD0iNDUiPjxnIHN0eWxlPSJmaWxsOm5vbmU7IGZpbGwtb3BhY2l0eToxOyBmaWxsLXJ1bGU6ZXZlbm9kZDsgc3Ryb2tlOiMwMDAwMDA7IHN0cm9rZS13aWR0aDoxLjU7IHN0cm9rZS1saW5lY2FwOnJvdW5kO3N0cm9rZS1saW5lam9pbjpyb3VuZDtzdHJva2UtbWl0ZXJsaW1pdDo0OyBzdHJva2UtZGFzaGFycmF5Om5vbmU7IHN0cm9rZS1vcGFjaXR5OjE7Ij48cGF0aCBkPSJNIDIyLjUsMTEuNjMgTCAyMi41LDYiIHN0eWxlPSJmaWxsOm5vbmU7IHN0cm9rZTojMDAwMDAwOyBzdHJva2UtbGluZWpvaW46bWl0ZXI7IiBpZD0icGF0aDY1NzAiLz48cGF0aCBkPSJNIDIyLjUsMjUgQyAyMi41LDI1IDI3LDE3LjUgMjUuNSwxNC41IEMgMjUuNSwxNC41IDI0LjUsMTIgMjIuNSwxMiBDIDIwLjUsMTIgMTkuNSwxNC41IDE5LjUsMTQuNSBDIDE4LDE3LjUgMjIuNSwyNSAyMi41LDI1IiBzdHlsZT0iZmlsbDojMDAwMDAwO2ZpbGwtb3BhY2l0eToxOyBzdHJva2UtbGluZWNhcDpidXR0OyBzdHJva2UtbGluZWpvaW46bWl0ZXI7Ii8+PHBhdGggZD0iTSAxMi41LDM3IEMgMTgsNDAuNSAyNyw0MC41IDMyLjUsMzcgTCAzMi41LDMwIEMgMzIuNSwzMCA0MS41LDI1LjUgMzguNSwxOS41IEMgMzQuNSwxMyAyNSwxNiAyMi41LDIzLjUgTCAyMi41LDI3IEwgMjIuNSwyMy41IEMgMjAsMTYgMTAuNSwxMyA2LjUsMTkuNSBDIDMuNSwyNS41IDEyLjUsMzAgMTIuNSwzMCBMIDEyLjUsMzciIHN0eWxlPSJmaWxsOiMwMDAwMDA7IHN0cm9rZTojMDAwMDAwOyIvPjxwYXRoIGQ9Ik0gMjAsOCBMIDI1LDgiIHN0eWxlPSJmaWxsOm5vbmU7IHN0cm9rZTojMDAwMDAwOyBzdHJva2UtbGluZWpvaW46bWl0ZXI7Ii8+PHBhdGggZD0iTSAzMiwyOS41IEMgMzIsMjkuNSA0MC41LDI1LjUgMzguMDMsMTkuODUgQyAzNC4xNSwxNCAyNSwxOCAyMi41LDI0LjUgTCAyMi41LDI2LjYgTCAyMi41LDI0LjUgQyAyMCwxOCAxMC44NSwxNCA2Ljk3LDE5Ljg1IEMgNC41LDI1LjUgMTMsMjkuNSAxMywyOS41IiBzdHlsZT0iZmlsbDpub25lOyBzdHJva2U6I2ZmZmZmZjsiLz48cGF0aCBkPSJNIDEyLjUsMzAgQyAxOCwyNyAyNywyNyAzMi41LDMwIE0gMTIuNSwzMy41IEMgMTgsMzAuNSAyNywzMC41IDMyLjUsMzMuNSBNIDEyLjUsMzcgQyAxOCwzNCAyNywzNCAzMi41LDM3IiBzdHlsZT0iZmlsbDpub25lOyBzdHJva2U6I2ZmZmZmZjsiLz48L2c+PC9zdmc+"); }
+  .piece.bn { background-image: url("data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgNDUgNDUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgdmVyc2lvbj0iMS4xIiB3aWR0aD0iNDUiIGhlaWdodD0iNDUiPjxnIHN0eWxlPSJvcGFjaXR5OjE7IGZpbGw6bm9uZTsgZmlsbC1vcGFjaXR5OjE7IGZpbGwtcnVsZTpldmVub2RkOyBzdHJva2U6IzAwMDAwMDsgc3Ryb2tlLXdpZHRoOjEuNTsgc3Ryb2tlLWxpbmVjYXA6cm91bmQ7c3Ryb2tlLWxpbmVqb2luOnJvdW5kO3N0cm9rZS1taXRlcmxpbWl0OjQ7IHN0cm9rZS1kYXNoYXJyYXk6bm9uZTsgc3Ryb2tlLW9wYWNpdHk6MTsiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDAsMC4zKSI+PHBhdGgKICAgICAgZD0iTSAyMiwxMCBDIDMyLjUsMTEgMzguNSwxOCAzOCwzOSBMIDE1LDM5IEMgMTUsMzAgMjUsMzIuNSAyMywxOCIKICAgICAgc3R5bGU9ImZpbGw6IzAwMDAwMDsgc3Ryb2tlOiMwMDAwMDA7IiAvPjxwYXRoCiAgICAgIGQ9Ik0gMjQsMTggQyAyNC4zOCwyMC45MSAxOC40NSwyNS4zNyAxNiwyNyBDIDEzLDI5IDEzLjE4LDMxLjM0IDExLDMxIEMgOS45NTgsMzAuMDYgMTIuNDEsMjcuOTYgMTEsMjggQyAxMCwyOCAxMS4xOSwyOS4yMyAxMCwzMCBDIDksMzAgNS45OTcsMzEgNiwyNiBDIDYsMjQgMTIsMTQgMTIsMTQgQyAxMiwxNCAxMy44OSwxMi4xIDE0LDEwLjUgQyAxMy4yNyw5LjUwNiAxMy41LDguNSAxMy41LDcuNSBDIDE0LjUsNi41IDE2LjUsMTAgMTYuNSwxMCBMIDE4LjUsMTAgQyAxOC41LDEwIDE5LjI4LDguMDA4IDIxLDcgQyAyMiw3IDIyLDEwIDIyLDEwIgogICAgICBzdHlsZT0iZmlsbDojMDAwMDAwOyBzdHJva2U6IzAwMDAwMDsiIC8+PHBhdGgKICAgICAgZD0iTSA5LjUgMjUuNSBBIDAuNSAwLjUgMCAxIDEgOC41LDI1LjUgQSAwLjUgMC41IDAgMSAxIDkuNSAyNS41IHoiCiAgICAgIHN0eWxlPSJmaWxsOiNmZmZmZmY7IHN0cm9rZTojZmZmZmZmOyIgLz48cGF0aAogICAgICBkPSJNIDE1IDE1LjUgQSAwLjUgMS41IDAgMSAxICAxNCwxNS41IEEgMC41IDEuNSAwIDEgMSAgMTUgMTUuNSB6IgogICAgICB0cmFuc2Zvcm09Im1hdHJpeCgwLjg2NiwwLjUsLTAuNSwwLjg2Niw5LjY5MywtNS4xNzMpIgogICAgICBzdHlsZT0iZmlsbDojZmZmZmZmOyBzdHJva2U6I2ZmZmZmZjsiIC8+PHBhdGgKICAgICAgZD0iTSAyNC41NSwxMC40IEwgMjQuMSwxMS44NSBMIDI0LjYsMTIgQyAyNy43NSwxMyAzMC4yNSwxNC40OSAzMi41LDE4Ljc1IEMgMzQuNzUsMjMuMDEgMzUuNzUsMjkuMDYgMzUuMjUsMzkgTCAzNS4yLDM5LjUgTCAzNy40NSwzOS41IEwgMzcuNSwzOSBDIDM4LDI4Ljk0IDM2LjYyLDIyLjE1IDM0LjI1LDE3LjY2IEMgMzEuODgsMTMuMTcgMjguNDYsMTEuMDIgMjUuMDYsMTAuNSBMIDI0LjU1LDEwLjQgeiAiCiAgICAgIHN0eWxlPSJmaWxsOiNmZmZmZmY7IHN0cm9rZTpub25lOyIgLz48L2c+PC9zdmc+"); }
+  .piece.bp { background-image: url("data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgNDUgNDUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgdmVyc2lvbj0iMS4xIiB3aWR0aD0iNDUiIGhlaWdodD0iNDUiPjxwYXRoIGQ9Im0gMjIuNSw5IGMgLTIuMjEsMCAtNCwxLjc5IC00LDQgMCwwLjg5IDAuMjksMS43MSAwLjc4LDIuMzggQyAxNy4zMywxNi41IDE2LDE4LjU5IDE2LDIxIGMgMCwyLjAzIDAuOTQsMy44NCAyLjQxLDUuMDMgQyAxNS40MSwyNy4wOSAxMSwzMS41OCAxMSwzOS41IEggMzQgQyAzNCwzMS41OCAyOS41OSwyNy4wOSAyNi41OSwyNi4wMyAyOC4wNiwyNC44NCAyOSwyMy4wMyAyOSwyMSAyOSwxOC41OSAyNy42NywxNi41IDI1LjcyLDE1LjM4IDI2LjIxLDE0LjcxIDI2LjUsMTMuODkgMjYuNSwxMyBjIDAsLTIuMjEgLTEuNzksLTQgLTQsLTQgeiIgc3R5bGU9Im9wYWNpdHk6MTsgZmlsbDojMDAwMDAwOyBmaWxsLW9wYWNpdHk6MTsgZmlsbC1ydWxlOm5vbnplcm87IHN0cm9rZTojMDAwMDAwOyBzdHJva2Utd2lkdGg6MS41OyBzdHJva2UtbGluZWNhcDpyb3VuZDsgc3Ryb2tlLWxpbmVqb2luOm1pdGVyOyBzdHJva2UtbWl0ZXJsaW1pdDo0OyBzdHJva2UtZGFzaGFycmF5Om5vbmU7IHN0cm9rZS1vcGFjaXR5OjE7Ii8+PC9zdmc+"); }
+  .piece.bq { background-image: url("data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgNDUgNDUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgdmVyc2lvbj0iMS4xIiB3aWR0aD0iNDUiCmhlaWdodD0iNDUiPjxnIHN0eWxlPSJmaWxsOiMwMDAwMDA7c3Ryb2tlOiMwMDAwMDA7c3Ryb2tlLXdpZHRoOjEuNTsgc3Ryb2tlLWxpbmVjYXA6cm91bmQ7c3Ryb2tlLWxpbmVqb2luOnJvdW5kIj48cGF0aCBkPSJNIDksMjYgQyAxNy41LDI0LjUgMzAsMjQuNSAzNiwyNiBMIDM4LjUsMTMuNSBMIDMxLDI1IEwgMzAuNywxMC45IEwgMjUuNSwyNC41IEwgMjIuNSwxMCBMIDE5LjUsMjQuNSBMIDE0LjMsMTAuOSBMIDE0LDI1IEwgNi41LDEzLjUgTCA5LDI2IHoiCiAgICBzdHlsZT0ic3Ryb2tlLWxpbmVjYXA6YnV0dDtmaWxsOiMwMDAwMDAiIC8+PHBhdGggZD0ibSA5LDI2IGMgMCwyIDEuNSwyIDIuNSw0IDEsMS41IDEsMSAwLjUsMy41IC0xLjUsMSAtMSwyLjUgLTEsMi41IC0xLjUsMS41IDAsMi41IDAsMi41IDYuNSwxIDE2LjUsMSAyMywwIDAsMCAxLjUsLTEgMCwtMi41IDAsMCAwLjUsLTEuNSAtMSwtMi41IC0wLjUsLTIuNSAtMC41LC0yIDAuNSwtMy41IDEsLTIgMi41LC0yIDIuNSwtNCAtOC41LC0xLjUgLTE4LjUsLTEuNSAtMjcsMCB6IiAvPjxwYXRoIGQ9Ik0gMTEuNSwzMCBDIDE1LDI5IDMwLDI5IDMzLjUsMzAiIC8+PHBhdGggZD0ibSAxMiwzMy41IGMgNiwtMSAxNSwtMSAyMSwwIiAvPjxjaXJjbGUgY3g9IjYiIGN5PSIxMiIgcj0iMiIgLz48Y2lyY2xlIGN4PSIxNCIgY3k9IjkiIHI9IjIiIC8+PGNpcmNsZSBjeD0iMjIuNSIgY3k9IjgiIHI9IjIiIC8+PGNpcmNsZSBjeD0iMzEiIGN5PSI5IiByPSIyIiAvPjxjaXJjbGUgY3g9IjM5IiBjeT0iMTIiIHI9IjIiIC8+PHBhdGggZD0iTSAxMSwzOC41IEEgMzUsMzUgMSAwIDAgMzQsMzguNSIKICAgIHN0eWxlPSJmaWxsOm5vbmU7IHN0cm9rZTojMDAwMDAwO3N0cm9rZS1saW5lY2FwOmJ1dHQ7IiAvPjxnIHN0eWxlPSJmaWxsOm5vbmU7IHN0cm9rZTojZmZmZmZmOyI+PHBhdGggZD0iTSAxMSwyOSBBIDM1LDM1IDEgMCAxIDM0LDI5IiAvPjxwYXRoIGQ9Ik0gMTIuNSwzMS41IEwgMzIuNSwzMS41IiAvPjxwYXRoIGQ9Ik0gMTEuNSwzNC41IEEgMzUsMzUgMSAwIDAgMzMuNSwzNC41IiAvPjxwYXRoIGQ9Ik0gMTAuNSwzNy41IEEgMzUsMzUgMSAwIDAgMzQuNSwzNy41IiAvPjwvZz48L2c+PC9zdmc+"); }
+  .piece.br { background-image: url("data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgNDUgNDUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgdmVyc2lvbj0iMS4xIiB3aWR0aD0iNDUiIGhlaWdodD0iNDUiPjxnIHN0eWxlPSJvcGFjaXR5OjE7IGZpbGw6IzAwMDAwMDsgZmlsbC1vcGFjaXR5OjE7IGZpbGwtcnVsZTpldmVub2RkOyBzdHJva2U6IzAwMDAwMDsgc3Ryb2tlLXdpZHRoOjEuNTsgc3Ryb2tlLWxpbmVjYXA6cm91bmQ7c3Ryb2tlLWxpbmVqb2luOnJvdW5kO3N0cm9rZS1taXRlcmxpbWl0OjQ7IHN0cm9rZS1kYXNoYXJyYXk6bm9uZTsgc3Ryb2tlLW9wYWNpdHk6MTsiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDAsMC4zKSI+PHBhdGgKICAgICAgZD0iTSA5LDM5IEwgMzYsMzkgTCAzNiwzNiBMIDksMzYgTCA5LDM5IHogIgogICAgICBzdHlsZT0ic3Ryb2tlLWxpbmVjYXA6YnV0dDsiIC8+PHBhdGgKICAgICAgZD0iTSAxMi41LDMyIEwgMTQsMjkuNSBMIDMxLDI5LjUgTCAzMi41LDMyIEwgMTIuNSwzMiB6ICIKICAgICAgc3R5bGU9InN0cm9rZS1saW5lY2FwOmJ1dHQ7IiAvPjxwYXRoCiAgICAgIGQ9Ik0gMTIsMzYgTCAxMiwzMiBMIDMzLDMyIEwgMzMsMzYgTCAxMiwzNiB6ICIKICAgICAgc3R5bGU9InN0cm9rZS1saW5lY2FwOmJ1dHQ7IiAvPjxwYXRoCiAgICAgIGQ9Ik0gMTQsMjkuNSBMIDE0LDE2LjUgTCAzMSwxNi41IEwgMzEsMjkuNSBMIDE0LDI5LjUgeiAiCiAgICAgIHN0eWxlPSJzdHJva2UtbGluZWNhcDpidXR0O3N0cm9rZS1saW5lam9pbjptaXRlcjsiIC8+PHBhdGgKICAgICAgZD0iTSAxNCwxNi41IEwgMTEsMTQgTCAzNCwxNCBMIDMxLDE2LjUgTCAxNCwxNi41IHogIgogICAgICBzdHlsZT0ic3Ryb2tlLWxpbmVjYXA6YnV0dDsiIC8+PHBhdGgKICAgICAgZD0iTSAxMSwxNCBMIDExLDkgTCAxNSw5IEwgMTUsMTEgTCAyMCwxMSBMIDIwLDkgTCAyNSw5IEwgMjUsMTEgTCAzMCwxMSBMIDMwLDkgTCAzNCw5IEwgMzQsMTQgTCAxMSwxNCB6ICIKICAgICAgc3R5bGU9InN0cm9rZS1saW5lY2FwOmJ1dHQ7IiAvPjxwYXRoCiAgICAgIGQ9Ik0gMTIsMzUuNSBMIDMzLDM1LjUgTCAzMywzNS41IgogICAgICBzdHlsZT0iZmlsbDpub25lOyBzdHJva2U6I2ZmZmZmZjsgc3Ryb2tlLXdpZHRoOjE7IHN0cm9rZS1saW5lam9pbjptaXRlcjsiIC8+PHBhdGgKICAgICAgZD0iTSAxMywzMS41IEwgMzIsMzEuNSIKICAgICAgc3R5bGU9ImZpbGw6bm9uZTsgc3Ryb2tlOiNmZmZmZmY7IHN0cm9rZS13aWR0aDoxOyBzdHJva2UtbGluZWpvaW46bWl0ZXI7IiAvPjxwYXRoCiAgICAgIGQ9Ik0gMTQsMjkuNSBMIDMxLDI5LjUiCiAgICAgIHN0eWxlPSJmaWxsOm5vbmU7IHN0cm9rZTojZmZmZmZmOyBzdHJva2Utd2lkdGg6MTsgc3Ryb2tlLWxpbmVqb2luOm1pdGVyOyIgLz48cGF0aAogICAgICBkPSJNIDE0LDE2LjUgTCAzMSwxNi41IgogICAgICBzdHlsZT0iZmlsbDpub25lOyBzdHJva2U6I2ZmZmZmZjsgc3Ryb2tlLXdpZHRoOjE7IHN0cm9rZS1saW5lam9pbjptaXRlcjsiIC8+PHBhdGgKICAgICAgZD0iTSAxMSwxNCBMIDM0LDE0IgogICAgICBzdHlsZT0iZmlsbDpub25lOyBzdHJva2U6I2ZmZmZmZjsgc3Ryb2tlLXdpZHRoOjE7IHN0cm9rZS1saW5lam9pbjptaXRlcjsiIC8+PC9nPjwvc3ZnPg=="); }
 
   /* Postel's, the prevention half: legal destinations are shown, illegal ones
      are simply not offered — so an illegal move is unreachable, not rejected. */
@@ -146,49 +165,62 @@
   .ring { position: absolute; inset: 5%; border-radius: 50%; border: 4px solid var(--hint); pointer-events: none; z-index: 2; }
 
   .controls { display: flex; gap: 8px; }
+  /* The thick bottom edge is not decoration: it makes the button look pressable
+     before you touch it, and the press physically moves. Affordance you can see
+     and feel beats a flat rectangle that only reacts to hover. */
   button.action {
-    flex: 1; appearance: none; font: inherit; font-size: 15px; font-weight: 550;
-    padding: 12px 14px; border-radius: var(--radius); cursor: pointer;
-    background: var(--surface); color: var(--text); border: 1px solid var(--line);
-    transition: border-color .12s ease, color .12s ease;
+    flex: 1; appearance: none; font: inherit; font-size: 14px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: .06em;
+    padding: 13px 14px 13px; border-radius: var(--radius); cursor: pointer;
+    background: var(--surface); color: var(--text);
+    border: 2px solid var(--line); border-bottom-width: 4px;
+    transition: filter .1s ease, background .1s ease;
   }
-  button.action:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
-  button.action:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-  button.action:disabled { opacity: .45; cursor: default; }
-  /* Von Restorff: the one filled button appears only when the game is over. */
-  button.action.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-  button.action.primary:hover { filter: brightness(1.06); color: #fff; }
+  button.action:hover:not(:disabled) { background: var(--snow); }
+  button.action:active:not(:disabled) { border-bottom-width: 2px; transform: translateY(2px); }
+  button.action:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+  button.action:disabled { opacity: .5; cursor: default; }
+  /* Von Restorff: the one green button appears only when the game is over. */
+  button.action.primary {
+    background: var(--green-btn); border-color: #2a6600; color: #fff;
+  }
+  button.action.primary:hover:not(:disabled) { filter: brightness(1.05); background: var(--green); }
 
   /* Occam's: promotion is four choices that exist for a fraction of a second
      per game — so they appear only at that moment, never before. */
-  .promo { display: none; flex-direction: column; gap: 8px; padding: 12px; background: var(--accent-soft); border-radius: var(--radius); }
+  .promo { display: none; flex-direction: column; gap: 8px; padding: 12px; background: var(--blue-soft); border-radius: var(--radius); }
   .promo.show { display: flex; }
   .promo-label { font-size: 13px; font-weight: 600; }
   .promo-row { display: flex; gap: 8px; }
   .promo-row button {
     flex: 1; font: inherit; font-size: 28px; line-height: 1; padding: 10px 0;
-    background: var(--surface); border: 1px solid var(--line); border-radius: 10px; cursor: pointer;
+    background: var(--surface); border: 2px solid var(--line); border-bottom-width: 4px;
+    border-radius: 14px; cursor: pointer;
   }
+  .promo-row button:active { border-bottom-width: 2px; transform: translateY(2px); }
+  .promo-row .piece { width: 34px; height: 34px; display: inline-block; }
   /* Hick's + sensible default: queen is the answer >95% of the time, so it
      leads and is visually heavier. The other three stay available, not equal. */
-  .promo-row button.first { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft) inset; }
-  .promo-row button:hover { border-color: var(--accent); }
+  .promo-row button.first { border-color: var(--green-edge); background: var(--green-soft); }
+  .promo-row button:hover { background: var(--snow); }
+  .promo-row button.first:hover { background: var(--green-soft); }
 
   .meta { display: flex; gap: 8px; }
-  .meta div { flex: 1; padding: 9px 8px; text-align: center; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
-  .meta .value { font-size: 15px; font-weight: 650; letter-spacing: -.01em; min-height: 23px; }
-  .meta .label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .meta div { flex: 1; padding: 10px 8px; text-align: center; background: var(--surface); border: 2px solid var(--line); border-radius: var(--radius); }
+  .meta .value { font-size: 17px; font-weight: 800; letter-spacing: -.01em; min-height: 25px; color: var(--text-strong); }
+  .meta .label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; font-weight: 800; }
 
   /* Miller's again: the move list is the interface remembering the game so
      the player doesn't have to. Chunked in numbered pairs, newest visible. */
-  .moves { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); max-height: 132px; overflow-y: auto; }
-  .moves-empty { padding: 12px; font-size: 13px; color: var(--muted); text-align: center; }
+  .moves { background: var(--surface); border: 2px solid var(--line); border-radius: var(--radius); max-height: 132px; overflow-y: auto; }
+  .moves-empty { padding: 14px; font-size: 13px; color: var(--muted); text-align: center; font-weight: 600; }
   .moves table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
   .moves td { padding: 5px 8px; }
   .moves td.n { color: var(--muted); width: 34px; }
   .moves td.m { font-weight: 500; }
-  .moves tr:nth-child(even) { background: rgba(127,127,127,.05); }
-  .moves .cur { color: var(--accent); font-weight: 650; }
+  .moves td.m { font-weight: 700; }
+  .moves tr:nth-child(even) { background: var(--snow); }
+  .moves .cur { color: var(--blue-text); font-weight: 800; }
 
   /* Review marks: what you played (red) against what the engine wanted
      (green), on the same wash layer as the other highlights. */
@@ -199,8 +231,6 @@
      a move you can follow. Distance and direction are the information. */
   .flyer {
     position: absolute; z-index: 5; pointer-events: none;
-    display: flex; align-items: center; justify-content: center;
-    font-size: clamp(27px, 8.7vw, 38px); line-height: 1;
     transition: transform .3s cubic-bezier(.22,.7,.24,1);
   }
 
@@ -210,83 +240,86 @@
      walkthrough works with the sound off, on a muted phone, or for someone
      who simply doesn't want a voice. */
   .walk-caption {
-    min-height: 46px; font-size: 14px; line-height: 1.5; padding: 11px 12px;
-    border-radius: var(--radius); background: var(--accent-soft); color: var(--text);
+    min-height: 48px; font-size: 14px; line-height: 1.5; padding: 12px 14px; font-weight: 600;
+    border-radius: var(--radius); background: var(--green-soft); color: var(--text-strong);
   }
-  .walk-caption b { font-weight: 650; }
-  .walk-caption.quiet { background: var(--surface); border: 1px solid var(--line); color: var(--muted); }
+  .walk-caption b { font-weight: 800; }
+  .walk-caption.quiet { background: var(--snow); border: 2px solid var(--line); color: var(--muted); }
   .walk-controls { display: flex; gap: 8px; align-items: center; }
   .walk-controls .action { padding: 11px 12px; font-size: 14px; }
-  .walk-pos { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; margin-left: auto; }
+  .walk-pos { font-size: 12px; color: var(--muted); font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; margin-left: auto; }
 
   .review { display: none; flex-direction: column; gap: 12px; }
   .review.show { display: flex; }
   .review-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .score { display: flex; align-items: baseline; gap: 8px; }
-  .score .num { font-size: 30px; font-weight: 700; letter-spacing: -.03em; }
-  .score .of { font-size: 13px; color: var(--muted); }
-  .score .who { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .score .num { font-size: 34px; font-weight: 800; letter-spacing: -.03em; color: var(--green-text); }
+  .score .of { font-size: 13px; color: var(--muted); font-weight: 700; }
+  .score .who { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; font-weight: 800; }
 
   /* Zeigarnik: a review of a long game takes seconds, so it says where it is
      rather than freezing on a spinner. */
-  .bar { height: 6px; border-radius: 999px; background: var(--line); overflow: hidden; }
-  .bar span { display: block; height: 100%; background: var(--accent); width: 0; transition: width .15s linear; }
+  .bar { height: 10px; border-radius: 999px; background: var(--line); overflow: hidden; }
+  .bar span { display: block; height: 100%; background: var(--green); border-radius: 999px; width: 0; transition: width .15s linear; }
 
   .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-  .chip { font-size: 12px; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
-  .chip b { color: var(--text); font-weight: 650; }
-  .chip.blunder b { color: #d64040; }
-  .chip.mistake b { color: #d98324; }
-  .chip.inacc b   { color: #c9a227; }
-  .chip.best b    { color: #3aaa60; }
+  .chip { font-size: 12px; padding: 6px 12px; border-radius: 999px; border: 2px solid var(--line); color: var(--muted); font-weight: 700; }
+  .chip b { color: var(--text); font-weight: 800; }
+  .chip.blunder { border-color: var(--red-soft); } .chip.blunder b { color: var(--red-edge); }
+  .chip.mistake { border-color: #ffe0c2; }        .chip.mistake b { color: #e07b1a; }
+  .chip.inacc   { border-color: var(--amber-soft); } .chip.inacc b { color: #c79100; }
+  .chip.best    { border-color: var(--green-soft); } .chip.best b  { color: var(--green-text); }
 
   /* Serial position: the one sentence worth remembering goes first. */
-  .lesson { font-size: 14px; line-height: 1.55; padding: 12px; border-radius: var(--radius); background: var(--accent-soft); color: var(--text); }
-  .lesson b { font-weight: 650; }
+  .lesson { font-size: 14px; line-height: 1.55; padding: 13px 14px; border-radius: var(--radius); background: var(--blue-soft); color: var(--text-strong); font-weight: 600; }
+  .lesson b { font-weight: 800; }
 
   .moments { display: flex; flex-direction: column; gap: 6px; }
-  .moments h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0; font-weight: 600; }
+  .moments h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0; font-weight: 800; }
   /* Fitts's + target distance: each moment is one wide tap that takes the
      board to that position — the lesson is the board, not the sentence. */
   .moment {
     display: flex; align-items: flex-start; gap: 10px; width: 100%; text-align: left;
     font: inherit; font-size: 13px; padding: 11px 12px; cursor: pointer;
-    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
-    color: var(--text);
+    background: var(--surface); border: 2px solid var(--line); border-bottom-width: 4px;
+    border-radius: var(--radius); color: var(--text); font-weight: 600;
   }
-  .moment:hover { border-color: var(--accent); }
-  .moment:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-  .moment[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
-  .moment .tag { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 6px; flex: none; margin-top: 1px; }
-  .moment .tag.blunder { background: rgba(214,64,64,.16); color: #d64040; }
-  .moment .tag.mistake { background: rgba(217,131,36,.16); color: #d98324; }
-  .moment .tag.inacc   { background: rgba(201,162,39,.16); color: #c9a227; }
+  .moment:hover { background: var(--snow); }
+  .moment:active { border-bottom-width: 2px; transform: translateY(2px); }
+  .moment:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+  .moment[aria-pressed="true"] { border-color: var(--blue); background: var(--blue-soft); }
+  .moment .tag { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; padding: 3px 8px; border-radius: 999px; flex: none; margin-top: 1px; }
+  .moment .tag.blunder { background: var(--red-soft); color: var(--red-edge); }
+  .moment .tag.mistake { background: #ffe8d2; color: #e07b1a; }
+  .moment .tag.inacc   { background: var(--amber-soft); color: #c79100; }
   .moment .txt { flex: 1; }
-  .moment .txt b { font-weight: 650; }
+  .moment .txt b { font-weight: 800; color: var(--text-strong); }
   .moment .txt em { font-style: normal; color: var(--muted); display: block; margin-top: 2px; font-size: 12px; }
-  .review-note { font-size: 11px; color: var(--muted); line-height: 1.5; margin: 0; }
+  .review-note { font-size: 11px; color: var(--muted); line-height: 1.5; margin: 0; font-weight: 600; }
 
-  .hint { font-size: 12px; color: var(--muted); text-align: center; margin: 0; }
+  .hint { font-size: 12px; color: var(--muted); text-align: center; margin: 0; font-weight: 600; }
   .credit { text-align: center; display: flex; flex-direction: column; gap: 8px; }
-  .credit p { margin: 0; font-size: 13px; color: var(--muted); }
-  .credit a { color: var(--accent); text-decoration: none; }
+  .credit p { margin: 0; font-size: 13px; color: var(--muted); font-weight: 600; }
+  .credit a { color: var(--blue-text); text-decoration: none; font-weight: 800; }
   .credit a:hover { text-decoration: underline; }
   .credit code {
-    display: inline-block; font-size: 12px; padding: 7px 11px; border-radius: 8px;
-    background: var(--surface); border: 1px solid var(--line); color: var(--text);
+    display: inline-block; font-size: 12px; padding: 8px 12px; border-radius: 10px;
+    background: var(--snow); border: 2px solid var(--line); color: var(--text);
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   }
   /* Fitts's: 40px round target, not a 16px speaker glyph. */
   .icon-btn {
-    width: 40px; height: 40px; flex: none;
+    width: 44px; height: 44px; flex: none;
     display: flex; align-items: center; justify-content: center;
-    border-radius: 999px; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 999px; background: var(--surface);
+    border: 2px solid var(--line); border-bottom-width: 4px;
     color: var(--muted); cursor: pointer;
-    transition: color .12s ease, border-color .12s ease;
+    transition: background .1s ease;
   }
-  .icon-btn:hover { color: var(--text); border-color: var(--accent); }
-  .icon-btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-  .icon-btn[aria-pressed="true"] { color: var(--accent); }
+  .icon-btn:hover { background: var(--snow); }
+  .icon-btn:active { border-bottom-width: 2px; transform: translateY(2px); }
+  .icon-btn:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+  .icon-btn[aria-pressed="true"] { color: var(--blue-text); border-color: var(--blue-soft); }
   .icon-btn .slash { display: none; }
   .icon-btn[aria-pressed="false"] .waves { display: none; }
   .icon-btn[aria-pressed="false"] .slash { display: inline; }
@@ -422,6 +455,8 @@
 
   <footer class="credit">
     <p>Built by an agent with the <a href="https://github.com/uwussimo/ux-laws">ux-laws</a> skill loaded.</p>
+    <p>Pieces by <a href="https://commons.wikimedia.org/wiki/User:Cburnett">Cburnett</a> via Wikimedia Commons,
+    <a href="https://creativecommons.org/licenses/by-sa/3.0/">CC BY-SA 3.0</a>.</p>
     <p><code>npx skills add uwussimo/ux-laws</code></p>
   </footer>
   </aside>
@@ -431,7 +466,6 @@
 (() => {
   "use strict";
   const FILES = "abcdefgh";
-  const GLYPH = { k:"♚", q:"♛", r:"♜", b:"♝", n:"♞", p:"♟" };
   const VAL = { p:100, n:320, b:330, r:500, q:900, k:0 };
   const DIAG = [[-1,-1],[-1,1],[1,-1],[1,1]];
   const ORTH = [[-1,0],[1,0],[0,-1],[0,1]];
@@ -947,7 +981,7 @@
       if (!m) return;
       const btn = document.createElement("button");
       btn.className = n === 0 ? "first" : "";
-      btn.innerHTML = `<span class="piece ${colorOf(m.piece)}">${GLYPH[code]}</span>`;
+      btn.innerHTML = `<span class="piece ${colorOf(m.piece)}${code}"></span>`;
       btn.setAttribute("aria-label", pieceName(code));
       btn.addEventListener("click", () => { promoEl.classList.remove("show"); ui.pendingPromo = null; commit(m); });
       promoRow.appendChild(btn);
@@ -1042,7 +1076,7 @@
       sq.classList.toggle("sel", !marks && ui.sel === i);
       sq.classList.toggle("check", i === checkSq && (!!marks || !ui.over));
       const target = marks ? null : ui.targets.find(m => m.to === i);
-      sq.innerHTML = (p ? `<span class="piece ${colorOf(p)}">${GLYPH[p.toLowerCase()]}</span>` : "")
+      sq.innerHTML = (p ? `<span class="piece ${colorOf(p)}${p.toLowerCase()}"></span>` : "")
         + (target ? (p || target.ep ? '<span class="ring"></span>' : '<span class="dot"></span>') : "");
       sq.disabled = !myTurn();
       sq.setAttribute("aria-label", `${sqName(i)}${p ? `, ${colorOf(p) === "w" ? "white" : "black"} ${pieceName(p)}` : ", empty"}${target ? ", can move here" : ""}`);
@@ -1258,8 +1292,7 @@
     if (!size || reducedMotion()) { onDone(); return; }
     const piece = m.piece;
     const fly = document.createElement("div");
-    fly.className = `flyer piece ${colorOf(piece)}`;
-    fly.textContent = GLYPH[piece.toLowerCase()];
+    fly.className = `flyer piece ${colorOf(piece)}${piece.toLowerCase()}`;
     fly.style.width = fly.style.height = size + "px";
     fly.style.left = (file(m.from) * size) + "px";
     fly.style.top = (rank(m.from) * size) + "px";
