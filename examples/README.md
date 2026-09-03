@@ -96,6 +96,25 @@ Three decisions did most of the work:
   first one in generation order — producing "a4 was better", which is true and useless. Ties now
   break toward captures, central squares, and developing moves, so the same position advises "Nc3".
 
+### The guided walkthrough
+
+After the review, the game can replay itself: each move slides across the board, and at every mistake
+it stops, marks the board, and explains what went wrong — spoken aloud through the browser's own
+speech synthesis.
+
+- **Nothing is audio-only.** Every spoken sentence is printed as a caption at the same moment. The
+  walkthrough is identical with the voice off, on a muted phone, in a browser with no speech support,
+  or for someone who cannot hear it — the voice is an enhancement of the caption, never a replacement.
+- **Pacing follows whichever channel is carrying it.** With a voice, each step waits for the sentence
+  to finish. Without one, captions hold long enough to read — the first version flashed the opening
+  line past in under 20ms, which the tests caught.
+- **Notation becomes speech.** `Bxc6` is read "Bishop takes C 6", `O-O` as "castles kingside",
+  `gxh8=Q+` as "G takes H 8, promoting to queen, check". Reading raw notation aloud teaches nobody.
+- **Ordinary moves don't interrupt.** Only mistakes stop the replay and speak; the rest flow past at
+  reading speed. Narrating all fifty moves would be thorough and unbearable.
+- **The animation is the point, not decoration.** A piece that travels shows you which piece moved and
+  how far; a piece that teleports makes you diff two positions. It honours `prefers-reduced-motion`.
+
 The headline lesson is derived from the pattern in the mistakes (pieces left hanging, captures walked
 past, a mate allowed), not chosen from a list of platitudes. And the panel states plainly what the
 engine is: depth 3, reliable on hung pieces, missed captures and mates, not a substitute for a real

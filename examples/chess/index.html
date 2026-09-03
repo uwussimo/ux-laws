@@ -94,6 +94,7 @@
   .files { grid-template-columns: repeat(8, 1fr); justify-items: center; grid-column: 2; }
 
   .board {
+    position: relative;
     display: grid; grid-template-columns: repeat(8, 1fr);
     border-radius: 6px; overflow: hidden;
     border: 1px solid var(--sq-edge);
@@ -191,6 +192,30 @@
      (green), on the same wash layer as the other highlights. */
   .sq.mv-bad::before  { background: rgba(214, 64, 64, .58); }
   .sq.mv-good::before { background: rgba(58, 170, 96, .58); }
+
+  /* The piece travels instead of teleporting: a move you can see happening is
+     a move you can follow. Distance and direction are the information. */
+  .flyer {
+    position: absolute; z-index: 5; pointer-events: none;
+    display: flex; align-items: center; justify-content: center;
+    font-size: clamp(27px, 8.7vw, 38px); line-height: 1;
+    transition: transform .3s cubic-bezier(.22,.7,.24,1);
+  }
+
+  .walk { display: none; flex-direction: column; gap: 10px; }
+  .walk.show { display: flex; }
+  /* Never audio-only: everything spoken is also written here, so the
+     walkthrough works with the sound off, on a muted phone, or for someone
+     who simply doesn't want a voice. */
+  .walk-caption {
+    min-height: 46px; font-size: 14px; line-height: 1.5; padding: 11px 12px;
+    border-radius: var(--radius); background: var(--accent-soft); color: var(--text);
+  }
+  .walk-caption b { font-weight: 650; }
+  .walk-caption.quiet { background: var(--surface); border: 1px solid var(--line); color: var(--muted); }
+  .walk-controls { display: flex; gap: 8px; align-items: center; }
+  .walk-controls .action { padding: 11px 12px; font-size: 14px; }
+  .walk-pos { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; margin-left: auto; }
 
   .review { display: none; flex-direction: column; gap: 12px; }
   .review.show { display: flex; }
@@ -337,6 +362,27 @@
     <div class="lesson" id="lesson"></div>
     <div class="chips" id="chips"></div>
     <div class="moments" id="moments"></div>
+
+    <button class="action" id="walk-start" style="display:none">Walk me through it</button>
+
+    <div class="walk" id="walk">
+      <div class="walk-caption" id="walk-caption"></div>
+      <div class="walk-controls">
+        <button class="action" id="walk-play">Pause</button>
+        <button class="action" id="walk-next">Next</button>
+        <button class="icon-btn" id="walk-voice" aria-pressed="true" aria-label="Narration on">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="4 9 8 9 13 5 13 19 8 15 4 15"></polygon>
+            <g class="waves"><path d="M16.5 9a4.5 4.5 0 0 1 0 6"></path><path d="M19.5 6.5a8 8 0 0 1 0 11"></path></g>
+            <g class="slash"><path d="M17 9.5l5 5"></path><path d="M22 9.5l-5 5"></path></g>
+          </svg>
+        </button>
+        <button class="action" id="walk-exit" style="flex:none; width:auto;">Done</button>
+        <span class="walk-pos" id="walk-pos"></span>
+      </div>
+    </div>
+
     <p class="review-note" id="review-note"></p>
   </div>
 
@@ -686,6 +732,50 @@
     return `<b>${bad.length} move${bad.length > 1 ? "s" : ""} decided this game.</b> The rest was reasonable; the swing came from a small number of moments below.`;
   }
 
+  // --- narration ----------------------------------------------------------
+  // The computer's own voice, via the Web Speech API. It is an enhancement,
+  // never the channel: every word spoken is also printed as a caption, and the
+  // walkthrough runs identically on a browser with no speech support at all.
+  const Speech = (() => {
+    const store = {
+      get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+      set(k, v) { try { localStorage.setItem(k, v); } catch { /* ignore */ } }
+    };
+    const supported = typeof speechSynthesis !== "undefined" && typeof SpeechSynthesisUtterance !== "undefined";
+    let on = supported && store.get("chess-voice") !== "off";
+    return {
+      supported,
+      get on() { return on; },
+      toggle() { on = !on; store.set("chess-voice", on ? "on" : "off"); if (!on) this.stop(); return on; },
+      stop() { if (supported) try { speechSynthesis.cancel(); } catch { /* ignore */ } },
+      // Resolves when the sentence has been said — or immediately when there is
+      // no voice, so pacing never depends on speech being available.
+      say(text) {
+        return new Promise(resolve => {
+          if (!on || !supported || !text) return resolve();
+          try {
+            speechSynthesis.cancel();
+            const u = new SpeechSynthesisUtterance(text);
+            u.lang = "en-US"; u.rate = 1.03; u.pitch = 1;
+            let done = false;
+            const finish = () => { if (!done) { done = true; resolve(); } };
+            u.onend = finish; u.onerror = finish;
+            // Some browsers drop long utterances silently; never hang the walk.
+            setTimeout(finish, Math.min(15000, 1200 + text.length * 70));
+            speechSynthesis.speak(u);
+          } catch { resolve(); }
+        });
+      }
+    };
+  })();
+
+  const raf = typeof requestAnimationFrame === "function" ? requestAnimationFrame : cb => setTimeout(cb, 16);
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  const reducedMotion = () => {
+    try { return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches; }
+    catch { return false; }
+  };
+
   // --- sound --------------------------------------------------------------
   // Every sound answers a question the screen answers slower: did that land,
   // was something taken, am I in trouble. Nothing here is decorative, and
@@ -793,7 +883,7 @@
   const pieceName = p => ({ k:"king", q:"queen", r:"rook", b:"bishop", n:"knight", p:"pawn" })[p.toLowerCase()];
 
   function myTurn() {
-    return !ui.over && !ui.busy && !ui.reviewing && !ui.viewState && (!ui.vsCpu || ui.s.turn === "w");
+    return !ui.over && !ui.busy && !ui.reviewing && !ui.viewState && !ui.walk && (!ui.vsCpu || ui.s.turn === "w");
   }
 
   function tap(i) {
@@ -1082,6 +1172,8 @@
         momentsEl.appendChild(btn);
       });
     }
+    el("walk-start").style.display = "";
+    el("walk-start").textContent = "Walk me through it";
     el("review-note").textContent =
       `Reviewed with the built-in engine at depth ${REVIEW_DEPTH}. It reliably catches hung pieces, missed captures and mates; it is not a substitute for a real engine on quiet positional moves.`;
     render();
@@ -1108,6 +1200,172 @@
   el("review-exit").addEventListener("click", exitView);
   el("review").addEventListener("click", runReview);
 
+  // --- guided walkthrough -------------------------------------------------
+  // Notation is written for the eye. Spoken aloud it has to become words:
+  // "Bxc6" is "Bishop takes C 6", not "bee ex see six".
+  const PIECE_SAID = { K:"King", Q:"Queen", R:"Rook", B:"Bishop", N:"Knight" };
+  function spell(sanText) {
+    if (sanText === "O-O") return "castles kingside";
+    if (sanText === "O-O-O") return "castles queenside";
+    let t = sanText, suffix = "", promo = "";
+    if (t.endsWith("#")) { suffix = ", checkmate"; t = t.slice(0, -1); }
+    else if (t.endsWith("+")) { suffix = ", check"; t = t.slice(0, -1); }
+    const pm = t.match(/=([QRBN])$/);
+    if (pm) { promo = ", promoting to " + PIECE_SAID[pm[1]].toLowerCase(); t = t.slice(0, -2); }
+    let out = "";
+    if (PIECE_SAID[t[0]]) { out = PIECE_SAID[t[0]] + " "; t = t.slice(1); }
+    out += t.replace("x", "\u0001")                    // park it: "takes" has a-h letters of its own
+            .replace(/[a-h]/g, c => c.toUpperCase())
+            .replace(/([A-H])(?=[A-H])/g, "$1 ")
+            .replace(/([A-H])(\d)/g, "$1 $2")
+            .replace(/(\d)(?=[A-H])/g, "$1 ")
+            .replace("\u0001", " takes ");
+    return (out + promo + suffix).replace(/\s+/g, " ").trim();
+  }
+
+  function animateMove(state, m, onDone) {
+    const size = boardEl.clientWidth ? boardEl.clientWidth / 8 : 0;
+    if (!size || reducedMotion()) { onDone(); return; }
+    const piece = m.piece;
+    const fly = document.createElement("div");
+    fly.className = `flyer piece ${colorOf(piece)}`;
+    fly.textContent = GLYPH[piece.toLowerCase()];
+    fly.style.width = fly.style.height = size + "px";
+    fly.style.left = (file(m.from) * size) + "px";
+    fly.style.top = (rank(m.from) * size) + "px";
+    boardEl.appendChild(fly);
+    squares[m.from].innerHTML = "";           // the piece is in flight, not at home
+    raf(() => {
+      fly.style.transform = `translate(${(file(m.to) - file(m.from)) * size}px, ${(rank(m.to) - rank(m.from)) * size}px)`;
+    });
+    setTimeout(() => { fly.remove(); onDone(); }, 320);
+  }
+  const animate = (state, m) => new Promise(res => animateMove(state, m, res));
+
+  // With a voice, pacing comes from the sentence being spoken. Without one,
+  // the caption is the only channel — so it has to stay up long enough to read.
+  const readPause = key => wait(Speech.on && Speech.supported ? (key ? 250 : 150) : (key ? 1600 : 430));
+
+  function caption(text, quiet) {
+    const c = el("walk-caption");
+    c.innerHTML = text;
+    c.classList.toggle("quiet", !!quiet);
+    liveEl.textContent = text.replace(/<[^>]+>/g, "");
+  }
+
+  function walkNarration(i) {
+    const h = ui.history[i];
+    const sanText = ui.sans[i];
+    const num = Math.floor(i / 2) + 1;
+    const mine = ui.vsCpu ? h.s.turn === "w" : true;
+    const entry = ui.review && ui.review.entries.find(e => e.ply === i);
+    const key = entry && (entry.grade === "blunder" || entry.grade === "mistake" || entry.grade === "inacc");
+    if (key) {
+      const better = san(h.s, entry.bestMove, legal(h.s));
+      return {
+        key: true, entry,
+        text: `<b>${num}${h.s.turn === "w" ? "." : "..."} ${sanText}</b> — ${GRADE_LABEL[entry.grade].toLowerCase()}. `
+            + `${entry.why ? entry.why + " " : ""}<b>${better}</b> was better.`,
+        speech: `Move ${num}. ${mine ? "You played" : "Your opponent played"} ${spell(sanText)}. That is ${
+          entry.grade === "blunder" ? "a blunder" : entry.grade === "mistake" ? "a mistake" : "an inaccuracy"}. `
+            + `${entry.why ? entry.why.replace(/<[^>]+>/g, "") + " " : ""}Better was ${spell(better)}.`
+      };
+    }
+    return { key: false, entry, text: `${num}${h.s.turn === "w" ? "." : "..."} ${sanText}`, speech: null };
+  }
+
+  async function walkStep() {
+    const i = ui.walk.idx;
+    if (i >= ui.history.length) return endWalk();
+    const h = ui.history[i];
+    const n = walkNarration(i);
+
+    // Show the position as it stood before the move, marked when it matters.
+    ui.viewState = h.s;
+    ui.viewMarks = n.key ? { bad: [h.m.from, h.m.to], good: [n.entry.bestMove.from, n.entry.bestMove.to] } : null;
+    caption(n.text, !n.key);
+    el("walk-pos").textContent = `${i + 1} / ${ui.history.length}`;
+    render();
+
+    // A mistake is worth stopping for; an ordinary move is not.
+    if (n.key) { await Speech.say(n.speech); if (!ui.walk) return; await readPause(true); }
+    if (!ui.walk) return;
+
+    ui.viewMarks = null;
+    render();
+    await animate(h.s, h.m);
+    if (!ui.walk) return;
+
+    ui.viewState = make(h.s, h.m);
+    ui.last = { from: h.m.from, to: h.m.to };
+    render();
+    if (h.m.captured) Sound.capture(); else if (h.m.castle) Sound.castle(); else Sound.move();
+    ui.walk.idx = i + 1;
+    await readPause(n.key);
+  }
+
+  async function walkLoop() {
+    while (ui.walk && ui.walk.playing && ui.walk.idx < ui.history.length) await walkStep();
+    if (ui.walk && ui.walk.idx >= ui.history.length) endWalk();
+  }
+
+  async function startWalk() {
+    if (!ui.review) return;
+    ui.walk = { idx: 0, playing: true };
+    el("walk").classList.add("show");
+    el("walk-start").style.display = "none";
+    el("review-exit").style.display = "none";
+    el("walk-play").textContent = "Pause";
+    syncVoice(Speech.on);
+    const mine = ui.review.entries.filter(e => ui.vsCpu ? e.side === "w" : true);
+    const acc = mine.length ? (mine.reduce((a, e) => a + e.accuracy, 0) / mine.length) : 100;
+    const bad = mine.filter(e => e.grade === "blunder" || e.grade === "mistake").length;
+    caption(`<b>Let's go through the game.</b> ${bad ? `${bad} move${bad > 1 ? "s" : ""} cost you most of it — I'll stop at each one.` : "Nothing went badly wrong; I'll point out the small things."}`);
+    await Speech.say(`Let's go through the game. Your accuracy was ${Math.round(acc)} out of 100. ${
+      bad ? `${bad} move${bad > 1 ? "s" : ""} cost you most of it. I will stop at each one.` : "Nothing went badly wrong."}`);
+    if (!ui.walk) return;
+    await readPause(true);          // the opening line must be readable with no voice
+    if (!ui.walk) return;
+    walkLoop();
+  }
+
+  function endWalk() {
+    if (!ui.walk) return;
+    ui.walk = null;
+    Speech.stop();
+    ui.viewState = null; ui.viewMarks = null;
+    el("walk").classList.remove("show");
+    el("walk-start").style.display = "";
+    el("walk-start").textContent = "Walk me through it again";
+    caption("");
+    render();
+  }
+
+  el("walk-start").addEventListener("click", startWalk);
+  el("walk-play").addEventListener("click", () => {
+    if (!ui.walk) return;
+    ui.walk.playing = !ui.walk.playing;
+    el("walk-play").textContent = ui.walk.playing ? "Pause" : "Play";
+    Speech.stop();
+    if (ui.walk.playing) walkLoop();
+  });
+  el("walk-next").addEventListener("click", async () => {
+    if (!ui.walk) return;
+    ui.walk.playing = false;
+    el("walk-play").textContent = "Play";
+    Speech.stop();
+    await walkStep();
+  });
+  el("walk-exit").addEventListener("click", endWalk);
+
+  const voiceBtn = el("walk-voice");
+  function syncVoice(on) {
+    voiceBtn.setAttribute("aria-pressed", String(on));
+    voiceBtn.setAttribute("aria-label", on ? "Narration on" : "Narration off");
+    voiceBtn.style.display = Speech.supported ? "" : "none";   // no voice, no switch
+  }
+  voiceBtn.addEventListener("click", () => syncVoice(Speech.toggle()));
+
   // Postel's, the recovery half: a take-back, not a confirm dialog. Against
   // the computer it rewinds the pair, which is what a player means by it.
   undoBtn.addEventListener("click", () => {
@@ -1123,7 +1381,10 @@
 
   function newGame() {
     Object.assign(ui, { s: initial(), sel:null, targets:[], history:[], sans:[], last:null, busy:false,
-                        over:null, pendingPromo:null, reviewing:false, review:null, viewState:null, viewMarks:null });
+                        over:null, pendingPromo:null, reviewing:false, review:null, viewState:null, viewMarks:null, walk:null });
+    Speech.stop();
+    el("walk").classList.remove("show");
+    el("walk-start").style.display = "none";
     promoEl.classList.remove("show");
     el("review-panel").classList.remove("show");
     el("review-bar").style.display = "";
