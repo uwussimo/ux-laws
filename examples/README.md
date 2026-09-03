@@ -72,6 +72,7 @@ and almost every decision below follows from that.
 | **Proximity / Uniform connectedness** | Status, board, and controls share one card; material and move list are separate groups below it. |
 | **Prägnanz** | Two board colours, one highlight for the last move, one for check. No gradients, no piece shadows doing nothing. |
 | **Pareto** | The 20% is: pick a piece, see where it goes, move it. That path is one tap deep and never blocked. |
+| **Similarity / Prägnanz** | The board is exempt from the theme. Dark mode originally recoloured the squares, which put black pieces at 1.29:1 against them — the pattern survived, the pieces didn't. Classic square colours now hold in both themes; only the chrome around the board changes. |
 | **Sound** | Eight sounds, each answering a question the screen answers slower. A capture is heavier and darker than a quiet move; check is the one sound that is unmistakably not a move; take-back reverses rather than advances. Synthesised with WebAudio, so the file stays self-contained — no assets. |
 
 Sound follows the same rule as everything else here: it has to carry information. Picking a piece
@@ -80,6 +81,13 @@ reply is audible so you can look away and still know it moved. The mute switch i
 than a mixer (Hick's), it remembers itself across visits (Tesler's), it survives a browser with no
 audio or no storage without taking the game down (Postel's), and no `AudioContext` is ever created
 while muted.
+
+Contrast is measured rather than eyeballed. Every piece/square pair clears 4.5:1 — white pieces
+carry their contrast in a `-webkit-text-stroke` edge (10.8:1) since white-on-cream fill is only
+1.37:1 — and the legal-move dots were opened from 32% to 60% opacity after measuring 1.77:1 against
+the dark squares. The one deliberate exception is the board pattern itself at 2.29:1: that is what a
+chess board has always looked like, and pushing the two square colours apart to satisfy a number
+would make the pieces harder to read, not easier. The meta rule wins over the checklist.
 
 Correctness is not a UX law, but an interface that allows an illegal move has no UX at all. The move
 generator is verified with `perft` to depth 5 — 4,865,609 positions, matching the published count

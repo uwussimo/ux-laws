@@ -14,10 +14,17 @@
     --muted: #666e78;
     --accent: #2f6df6;
     --accent-soft: #e7efff;
-    --light: #eceff3;
-    --dark: #b3bcc9;
-    --last: #f6e6a8;
-    --check: #ffc9cf;
+    /* The board does not follow the theme. A chess board looks like a chess
+       board in daylight and at night; inverting it in dark mode was what made
+       the pieces disappear. Only the page chrome around it changes. */
+    --sq-light: #f0d9b5;
+    --sq-dark: #b58863;
+    --sq-edge: rgba(60,42,28,.55);
+    --piece-w: #ffffff;
+    --piece-b: #2a2724;
+    --mark: rgba(255, 206, 61, .55);
+    --mark-strong: rgba(255, 196, 0, .72);
+    --hint: rgba(20, 16, 10, .6);   /* .32 measured 1.77:1 on dark squares; .6 clears 3:1 on both */
     --danger: #d1495b;
     --win: #16a34a;
     --radius: 14px;
@@ -32,10 +39,6 @@
       --muted: #98a1ad;
       --accent: #5b8cff;
       --accent-soft: #1b2740;
-      --light: #4a515c;
-      --dark: #2b313a;
-      --last: #5c5320;
-      --check: #5c2027;
       --danger: #ff7d8f;
       --win: #4ade80;
       --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
@@ -92,31 +95,52 @@
 
   .board {
     display: grid; grid-template-columns: repeat(8, 1fr);
-    border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line);
+    border-radius: 6px; overflow: hidden;
+    border: 1px solid var(--sq-edge);
+    box-shadow: 0 2px 10px rgba(0,0,0,.18);
   }
   /* Fitts's: the board takes the full width available, so squares stay
      comfortably tappable (~48px on a phone) instead of decorative. */
   .sq {
     aspect-ratio: 1; position: relative; display: flex; align-items: center; justify-content: center;
     border: 0; padding: 0; cursor: pointer;
-    font-size: clamp(26px, 8.2vw, 36px); line-height: 1;
+    font-size: clamp(27px, 8.7vw, 38px); line-height: 1;
     transition: background .1s ease;
   }
-  .sq.l { background: var(--light); }
-  .sq.d { background: var(--dark); }
-  .sq.last { background: var(--last); }
-  .sq.sel { background: var(--accent); }
-  .sq.check { background: var(--check); }
-  .sq:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; z-index: 2; }
+  .sq.l { background: var(--sq-light); }
+  .sq.d { background: var(--sq-dark); }
+  /* Highlights are translucent washes over the square, not replacement colours,
+     so a marked square still reads as light or dark and the board never breaks
+     its pattern. */
+  .sq::before { content: ""; position: absolute; inset: 0; pointer-events: none; }
+  .sq.last::before { background: var(--mark); }
+  .sq.sel::before  { background: var(--mark-strong); }
+  .sq.check::before {
+    background: radial-gradient(circle at center,
+      rgba(255,64,64,.95) 0%, rgba(255,64,64,.72) 38%, rgba(255,64,64,0) 72%);
+  }
+  .sq:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; z-index: 3; }
   .sq:disabled { cursor: default; }
-  .piece { pointer-events: none; }
-  .piece.w { color: #fff; text-shadow: 0 0 1px #333, 0 0 2px #333, 0 1px 1px rgba(0,0,0,.5); }
-  .piece.b { color: #1a1d22; text-shadow: 0 0 1px rgba(255,255,255,.4); }
+  .piece { pointer-events: none; position: relative; z-index: 2; }
+  /* Both piece colours are readable on both square colours — verified, not
+     eyeballed: every combination clears 4.5:1. */
+  .piece.w {
+    color: var(--piece-w);
+    -webkit-text-stroke: 1.6px #2a2724;   /* the edge carries the contrast: 10.8:1 on light squares */
+    paint-order: stroke fill;
+    text-shadow: 0 1px 2px rgba(0,0,0,.4);
+  }
+  .piece.b {
+    color: var(--piece-b);
+    -webkit-text-stroke: .6px #171512;
+    paint-order: stroke fill;
+    text-shadow: 0 1px 1px rgba(255,255,255,.18);
+  }
 
   /* Postel's, the prevention half: legal destinations are shown, illegal ones
      are simply not offered — so an illegal move is unreachable, not rejected. */
-  .dot { position: absolute; width: 26%; height: 26%; border-radius: 50%; background: rgba(47,109,246,.55); pointer-events: none; }
-  .ring { position: absolute; inset: 6%; border-radius: 50%; border: 3px solid rgba(47,109,246,.55); pointer-events: none; }
+  .dot { position: absolute; width: 28%; height: 28%; border-radius: 50%; background: var(--hint); pointer-events: none; z-index: 2; }
+  .ring { position: absolute; inset: 5%; border-radius: 50%; border: 4px solid var(--hint); pointer-events: none; z-index: 2; }
 
   .controls { display: flex; gap: 8px; }
   button.action {
