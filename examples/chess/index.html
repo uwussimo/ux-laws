@@ -57,6 +57,7 @@
     -webkit-font-smoothing: antialiased;
   }
   main { width: 100%; max-width: 460px; padding: 16px 16px 32px; display: flex; flex-direction: column; gap: 16px; }
+  .side { display: flex; flex-direction: column; gap: 16px; }
 
   header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   h1 { font-size: 15px; font-weight: 600; margin: 0; color: var(--muted); }
@@ -95,6 +96,7 @@
 
   .board {
     position: relative;
+    container-type: inline-size;
     display: grid; grid-template-columns: repeat(8, 1fr);
     border-radius: 6px; overflow: hidden;
     border: 1px solid var(--sq-edge);
@@ -290,6 +292,32 @@
   .icon-btn[aria-pressed="false"] .slash { display: inline; }
   .header-right { display: flex; align-items: center; gap: 8px; }
 
+  /* Sized against the board rather than the viewport: a piece is always the
+     same fraction of its square whether the board is 340px or 590px. */
+  @supports (font-size: 1cqw) {
+    .sq, .flyer { font-size: 9cqw; }
+  }
+
+  /* Desktop is not a big phone. The board takes the space it deserves — bigger
+     targets, Fitts's — and the record of the game moves beside it instead of
+     below the fold. Board left, panel right is what every chess site does. */
+  @media (min-width: 900px) {
+    body { align-items: flex-start; }
+    main {
+      max-width: 1040px; padding: 24px 24px 40px;
+      display: grid; justify-content: center;
+      grid-template-columns: minmax(340px, 600px) minmax(300px, 360px);
+      grid-template-areas: "hd sd" "bd sd";
+      column-gap: 24px; row-gap: 16px; align-items: start;
+    }
+    header { grid-area: hd; }
+    #board-card { grid-area: bd; }
+    .side { grid-area: sd; }
+    .moves { max-height: 320px; }
+    .hint { text-align: left; }
+    .credit { text-align: left; align-items: flex-start; }
+  }
+
   .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
@@ -316,7 +344,7 @@
     </div>
   </header>
 
-  <div class="card">
+  <div class="card" id="board-card">
     <div class="status">
       <div class="status-line" id="status"><span class="turn-dot w"></span>Your move</div>
       <div class="status-sub" id="status-sub">You're White. Tap a piece to see where it can go.</div>
@@ -345,6 +373,7 @@
     </div>
   </div>
 
+  <aside class="side">
   <div class="meta">
     <div><div class="value" id="mat-w">—</div><div class="label" id="lab-w">White</div></div>
     <div><div class="value" id="mat-b">—</div><div class="label" id="lab-b">Black</div></div>
@@ -395,6 +424,7 @@
     <p>Built by an agent with the <a href="https://github.com/uwussimo/ux-laws">ux-laws</a> skill loaded.</p>
     <p><code>npx skills add uwussimo/ux-laws</code></p>
   </footer>
+  </aside>
 </main>
 
 <script>

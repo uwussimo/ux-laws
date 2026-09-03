@@ -39,6 +39,7 @@ What the skill changed:
 | **Postel's** | Tapping an occupied square shrugs (a nudge animation) instead of raising an error; Undo replaces "Are you sure?"; one undo rewinds the whole pair against the computer, because that is what "undo" means to the player. |
 | **Parkinson's** | Playable on load. Zero taps of setup. |
 | **Occam's** | Difficulty only appears when the opponent is the computer, because it is meaningless in 2-player mode. |
+| **Fitts's (desktop)** | A phone layout centred in a 1900px window wastes the screen and shrinks the targets. Above 900px the board takes a 600px column and the record of the game — material, moves, review — moves into a sidebar beside it, so nothing falls below the fold and the squares get ~50% larger. Pieces are sized in container-query units, so they stay the same fraction of a square at every board size. |
 | **Pareto** | The 20% is tapping a cell and starting the next round; both are one tap, always in reach. |
 
 Deliberate exception: the Zeigarnik effect has nothing to add here. A nine-square game needs no
