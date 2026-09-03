@@ -73,7 +73,34 @@ and almost every decision below follows from that.
 | **Prägnanz** | Two board colours, one highlight for the last move, one for check. No gradients, no piece shadows doing nothing. |
 | **Pareto** | The 20% is: pick a piece, see where it goes, move it. That path is one tap deep and never blocked. |
 | **Similarity / Prägnanz** | The board is exempt from the theme. Dark mode originally recoloured the squares, which put black pieces at 1.29:1 against them — the pattern survived, the pieces didn't. Classic square colours now hold in both themes; only the chrome around the board changes. |
+| **Peak-End (the review)** | The game ends into a lesson, not a dead end. At game over the review — not "Play again" — is the one filled button, because after a loss the useful next step is understanding it; once you've used it, Play again takes the highlight back. |
 | **Sound** | Eight sounds, each answering a question the screen answers slower. A capture is heavier and darker than a quiet move; check is the one sound that is unmistakably not a move; take-back reverses rather than advances. Synthesised with WebAudio, so the file stays self-contained — no assets. |
+
+### The post-game review
+
+Every move you played is re-searched, and the loss is measured in win-probability points rather than
+centipawns — losing 200 centipawns matters enormously at level and not at all when already winning.
+That produces an accuracy score, a grade per move, and the three moments that actually decided the
+game, worst first.
+
+Three decisions did most of the work:
+
+- **The board is the explanation.** Tapping a moment puts that position back on the board with the
+  move you played in red and the engine's choice in green. A sentence about move 24 teaches far less
+  than move 24 on the board in front of you.
+- **Claims are concrete or absent.** The review only says things the engine can demonstrate — "it
+  leaves your knight on f6 undefended — Nxf6 takes it", "there was a free rook on a8", "it allows
+  mate: Qh4#". Where it cannot explain, it reports the size of the mistake and stops. Vague
+  evaluation talk would sound authoritative and teach nothing.
+- **Advice has to be playable.** At this depth many moves tie, and the search originally returned the
+  first one in generation order — producing "a4 was better", which is true and useless. Ties now
+  break toward captures, central squares, and developing moves, so the same position advises "Nc3".
+
+The headline lesson is derived from the pattern in the mistakes (pieces left hanging, captures walked
+past, a mate allowed), not chosen from a list of platitudes. And the panel states plainly what the
+engine is: depth 3, reliable on hung pieces, missed captures and mates, not a substitute for a real
+engine on quiet positional moves. A teaching tool that overstates its own authority teaches the wrong
+lesson twice.
 
 Sound follows the same rule as everything else here: it has to carry information. Picking a piece
 up speaks and putting it down doesn't, because only one of those is a commitment. The computer's
