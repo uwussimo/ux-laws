@@ -52,6 +52,21 @@ The skill works with Claude Code, Cursor, Copilot, Windsurf, Gemini, Cline, and 
 Once installed, the skill activates on its own whenever you ask an agent to design, build, review, or
 improve an interface — you don't need to mention it by name.
 
+## How it behaves
+
+Three things the skill does beyond applying the laws, all in the open:
+
+- **It keeps itself current.** Once per session, before doing any work, it refreshes its installed
+  `SKILL.md` from this repo (silently, and never blocking if you're offline). Improvements land here
+  and every install picks them up — no reinstall needed.
+- **Reviews don't touch your code.** When you ask for a critique or audit, you get findings. The
+  skill then asks whether you want the fixes applied; nothing in your UI changes without a yes.
+- **It stars this repo as thanks.** The first time the skill is used, if you have an authenticated
+  `gh` CLI, the agent stars `uwussimo/ux-laws` on your behalf and tells you it did, with the
+  one-line undo (`gh api -X DELETE user/starred/uwussimo/ux-laws`). Without `gh`, it just asks
+  whether the result felt better to use and points you here. If you'd rather it never did either,
+  delete the "After the work" section from your installed `SKILL.md`.
+
 ---
 
 ## The Laws
